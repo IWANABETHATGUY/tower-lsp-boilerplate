@@ -67,9 +67,6 @@ export async function activate(context: ExtensionContext) {
   };
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used
-  function test<T>(a: T) {
-    return a;
-  }
   // Options to control the language client
   let clientOptions: LanguageClientOptions = {
     // Register the server for plain text documents

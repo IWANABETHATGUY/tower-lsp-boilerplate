@@ -127,6 +127,7 @@ dependencies = [
  "chumsky",
  "dashmap",
  "env_logger",
+ "log",
  "ropey",
  "serde",
  "serde_json",
