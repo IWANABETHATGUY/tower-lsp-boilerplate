@@ -70,7 +70,7 @@ export async function activate(context: ExtensionContext) {
         return a(data);
       },
       didSave(doc) {
-        client.sendRequest("custom/request", { path: window.activeTextEditor.document.uri }).then(res => {
+        client.sendRequest("custom/request", { path: window.activeTextEditor.document.uri.toString() }).then(res => {
           console.log(res);
         });
       },

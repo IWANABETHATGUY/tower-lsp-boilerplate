@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+
 use chumsky::Parser;
-use diagnostic_ls::chumsky::parse;
+use dashmap::DashMap;
+use diagnostic_ls::chumsky::{parse, type_inference, Func};
+use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tower_lsp::jsonrpc::Result;
+use tower_lsp::jsonrpc::{ErrorCode, Result};
 use tower_lsp::lsp_types::notification::Notification;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -10,6 +14,8 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 #[derive(Debug)]
 struct Backend {
     client: Client,
+    ast_map: DashMap<String, HashMap<String, Func>>,
+    document_map: DashMap<String, Rope>,
 }
 
 #[tower_lsp::async_trait]
@@ -85,19 +91,104 @@ impl LanguageServer for Backend {
         Ok(None)
     }
 
-    async fn did_open(&self, _: DidOpenTextDocumentParams) {
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
         self.client
             .log_message(MessageType::INFO, "file opened!")
             .await;
+        self.on_change(TextDocumentItem {
+            uri: params.text_document.uri,
+            text: params.text_document.text,
+            version: params.text_document.version,
+        })
+        .await
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
-        let rope = ropey::Rope::from_str(&params.content_changes[0].text);
-        let result = {
-            let res = parse(&params.content_changes[0].text);
-            res.1
-        };
-        let diagnostics = result
+        self.on_change(TextDocumentItem {
+            uri: params.text_document.uri,
+            text: std::mem::take(&mut params.content_changes[0].text),
+            version: params.text_document.version,
+        })
+        .await
+    }
+
+    async fn did_save(&self, _: DidSaveTextDocumentParams) {
+        self.client
+            .log_message(MessageType::INFO, "file saved!")
+            .await;
+    }
+
+    async fn did_close(&self, _: DidCloseTextDocumentParams) {
+        self.client
+            .log_message(MessageType::INFO, "file closed!")
+            .await;
+    }
+
+    async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
+        Ok(Some(CompletionResponse::Array(vec![
+            CompletionItem::new_simple("Hello".to_string(), "Some detail".to_string()),
+            CompletionItem::new_simple("Bye".to_string(), "More detail".to_string()),
+        ])))
+    }
+}
+#[derive(Debug, Deserialize, Serialize)]
+struct InlayHintParams {
+    path: String,
+}
+
+enum CustomNotification {}
+impl Notification for CustomNotification {
+    type Params = InlayHintParams;
+    const METHOD: &'static str = "custom/notification";
+}
+struct TextDocumentItem {
+    uri: Url,
+    text: String,
+    version: i32,
+}
+impl Backend {
+    async fn test(
+        &self,
+        params: serde_json::Value,
+    ) -> Result<Vec<(String, diagnostic_ls::chumsky::Value)>> {
+        let mut hashmap = HashMap::new();
+        if let Ok(InlayHintParams { path }) = serde_json::from_value::<InlayHintParams>(params) {
+            if let Some(ast) = self.ast_map.get(&path) {
+                ast.iter().for_each(|(k, v)| {
+                    type_inference(&v.body, &mut hashmap);
+                });
+            }
+        }
+
+        // if let Some(ast) = self.ast_map.get()
+        // self.client
+        //     .log_message(MessageType::INFO, &format!("{:?}", hashmap))
+        //     .await;
+        // if let Some(params )  {
+        let inlay_hint_list = hashmap
+            .into_iter()
+            .map(|(k, v)| (format!("{},{}", k.start, k.end), v))
+            .collect::<Vec<_>>();
+        Ok(inlay_hint_list)
+        // self.client
+        //     .log_message(MessageType::INFO, format!("{:?}", hashmap))
+        //     .await;
+        // match serde_json::to_string(&inlay_hint_list) {
+        //     Ok(value) => Ok(value),
+        //     Err(err) => {
+        //         self.client
+        //             .log_message(MessageType::INFO, format!("{:?}", err))
+        //             .await;
+        //         Err(tower_lsp::jsonrpc::Error::parse_error())
+        //     }
+        // }
+    }
+    async fn on_change(&self, params: TextDocumentItem) {
+        let rope = ropey::Rope::from_str(&params.text);
+        self.document_map
+            .insert(params.uri.to_string(), rope.clone());
+        let (ast, errors) = parse(&params.text);
+        let diagnostics = errors
             .into_iter()
             .filter_map(|item| {
                 let msg = format!(
@@ -144,54 +235,14 @@ impl LanguageServer for Backend {
                 diagnostic.ok()
             })
             .collect::<Vec<_>>();
-        if !diagnostics.is_empty() {
-            self.client
-                .publish_diagnostics(
-                    params.text_document.uri.clone(),
-                    diagnostics,
-                    Some(params.text_document.version),
-                )
-                .await;
+
+        self.client
+            .publish_diagnostics(params.uri.clone(), diagnostics, Some(params.version))
+            .await;
+
+        if let Some(ast) = ast {
+            self.ast_map.insert(params.uri.to_string(), ast);
         }
-    }
-
-    async fn did_save(&self, _: DidSaveTextDocumentParams) {
-        self.client
-            .send_notification::<CustomNotification>(TestParams {
-                a: "test".to_string(),
-            })
-            .await;
-        self.client
-            .log_message(MessageType::INFO, "file saved!")
-            .await;
-    }
-
-    async fn did_close(&self, _: DidCloseTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "file closed!")
-            .await;
-    }
-
-    async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
-        Ok(Some(CompletionResponse::Array(vec![
-            CompletionItem::new_simple("Hello".to_string(), "Some detail".to_string()),
-            CompletionItem::new_simple("Bye".to_string(), "More detail".to_string()),
-        ])))
-    }
-}
-#[derive(Debug, Deserialize, Serialize)]
-struct TestParams {
-    a: String,
-}
-
-enum CustomNotification {}
-impl Notification for CustomNotification {
-    type Params = TestParams;
-    const METHOD: &'static str = "custom/notification";
-}
-impl Backend {
-    async fn test(&self, params: serde_json::Value) -> Result<serde_json::Value> {
-        Ok(params)
     }
 }
 
@@ -202,8 +253,12 @@ async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::build(|client| Backend { client })
-        .method("custom/request", Backend::test)
-        .finish();
+    let (service, socket) = LspService::build(|client| Backend {
+        client,
+        ast_map: DashMap::new(),
+        document_map: DashMap::new(),
+    })
+    .method("custom/request", Backend::test)
+    .finish();
     Server::new(stdin, stdout, socket).serve(service).await;
 }

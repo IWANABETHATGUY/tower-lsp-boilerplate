@@ -2,6 +2,7 @@ use chumsky::Parser;
 use chumsky::{prelude::*, stream::Stream};
 use core::fmt;
 use std::{collections::HashMap, env, fs};
+use serde::{ Deserialize, Serialize };
 
 /// This is the parser and interpreter for the 'Foo' language. See `tutorial.md` in the repository's root to learn
 /// about it.
@@ -96,7 +97,7 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         .repeated()
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -140,7 +141,7 @@ impl std::fmt::Display for Value {
 }
 
 #[derive(Clone, Debug)]
-enum BinaryOp {
+pub enum BinaryOp {
     Add,
     Sub,
     Mul,
@@ -153,12 +154,12 @@ pub type Spanned<T> = (T, Span);
 
 // An expression node in the AST. Children are spanned so we can generate useful runtime errors.
 #[derive(Debug)]
-enum Expr {
+pub enum Expr {
     Error,
     Value(Value),
     List(Vec<Spanned<Self>>),
-    Local(String),
-    Let(String, Box<Spanned<Self>>, Box<Spanned<Self>>),
+    Local(Spanned<String>),
+    Let(String, Box<Spanned<Self>>, Box<Spanned<Self>>, Span),
     Then(Box<Spanned<Self>>, Box<Spanned<Self>>),
     Binary(Box<Spanned<Self>>, BinaryOp, Box<Spanned<Self>>),
     Call(Box<Spanned<Self>>, Spanned<Vec<Spanned<Self>>>),
@@ -166,11 +167,50 @@ enum Expr {
     Print(Box<Spanned<Self>>),
 }
 
+impl Expr {
+    /// Returns `true` if the expr is [`Error`].
+    ///
+    /// [`Error`]: Expr::Error
+    fn is_error(&self) -> bool {
+        matches!(self, Self::Error)
+    }
+
+    /// Returns `true` if the expr is [`Let`].
+    ///
+    /// [`Let`]: Expr::Let
+    fn is_let(&self) -> bool {
+        matches!(self, Self::Let(..))
+    }
+
+    /// Returns `true` if the expr is [`Value`].
+    ///
+    /// [`Value`]: Expr::Value
+    fn is_value(&self) -> bool {
+        matches!(self, Self::Value(..))
+    }
+
+    fn try_into_value(self) -> Result<Value, Self> {
+        if let Self::Value(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
+    fn as_value(&self) -> Option<&Value> {
+        if let Self::Value(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
 // A function node in the AST.
 #[derive(Debug)]
 pub struct Func {
     args: Vec<String>,
-    body: Spanned<Expr>,
+    pub body: Spanned<Expr>,
 }
 
 fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone {
@@ -186,7 +226,7 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
             .labelled("value");
 
             let ident = filter_map(|span, tok| match tok {
-                Token::Ident(ident) => Ok(ident.clone()),
+                Token::Ident(ident) => Ok((ident.clone(), span)),
                 _ => Err(Simple::expected_input_found(span, Vec::new(), Some(tok))),
             })
             .labelled("identifier");
@@ -206,7 +246,7 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
                 .then(raw_expr)
                 .then_ignore(just(Token::Ctrl(';')))
                 .then(expr.clone())
-                .map(|((name, val), body)| Expr::Let(name, Box::new(val), Box::new(body)));
+                .map(|((name, val), body)| Expr::Let(name.0, Box::new(val), Box::new(body), name.1));
 
             let list = items
                 .clone()
@@ -433,6 +473,32 @@ struct Error {
     msg: String,
 }
 
+pub fn type_inference(
+    expr: &Spanned<Expr>,
+    symbol_type_table: &mut HashMap<Span, Value>
+) {
+    match &expr.0 {
+        Expr::Error => {},
+        Expr::Value(_) => {},
+        Expr::List(exprs) => {
+            exprs.iter().for_each(|expr| type_inference(expr, symbol_type_table))
+        },
+        Expr::Local(_) => {},
+        Expr::Let(name, lhs, rest, name_span) => {
+            if let Some(value) = lhs.0.as_value() {
+                symbol_type_table.insert(name_span.clone(), value.clone());
+            }
+        },
+        Expr::Then(_, _) => (),
+        Expr::Binary(_, _, _) => {},
+        Expr::Call(_, _) => {},
+        Expr::If(_, consequent, alternative) => {
+            type_inference(consequent, symbol_type_table);
+            type_inference(alternative, symbol_type_table);
+        },
+        Expr::Print(_) => {},
+    }
+}
 // fn eval_expr(
 //     expr: &Spanned<Expr>,
 //     funcs: &HashMap<String, Func>,
@@ -639,8 +705,8 @@ struct Error {
 //     })
 // }
 
-pub fn parse(src: &String) -> (Option<HashMap<String, Func>>, Vec<Simple<String>>) {
-    let (tokens, mut errs) = lexer().parse_recovery(src.as_str());
+pub fn parse(src: &str) -> (Option<HashMap<String, Func>>, Vec<Simple<String>>) {
+    let (tokens, errs) = lexer().parse_recovery(src);
 
     let parse_result = if let Some(tokens) = tokens {
         // println!("Tokens = {:?}", tokens);

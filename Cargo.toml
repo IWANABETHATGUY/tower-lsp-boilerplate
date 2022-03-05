@@ -13,3 +13,8 @@ serde_json = "1.0.78"
 tokio = { version = "1.17.0", features = ["full"] }
 tower-lsp = { git = "https://github.com/ebkalderon/tower-lsp", branch = "support-custom-server-requests" }
 serde = { version = "1.0", features = ["derive"] }
+dashmap = "5.1.0"
+
+
+[debug]
+incremental = true
