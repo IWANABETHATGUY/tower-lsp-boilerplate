@@ -1,3 +1,4 @@
+#![feature(async_closure)]
 use std::collections::HashMap;
 
 use chumsky::Parser;
@@ -10,7 +11,6 @@ use tower_lsp::jsonrpc::{ErrorCode, Result};
 use tower_lsp::lsp_types::notification::Notification;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-
 #[derive(Debug)]
 struct Backend {
     client: Client,
@@ -198,34 +198,62 @@ impl Backend {
         self.document_map
             .insert(params.uri.to_string(), rope.clone());
         let (ast, errors) = parse(&params.text);
+        self.client
+            .log_message(MessageType::INFO, format!("{:?}", errors))
+            .await;
         let diagnostics = errors
             .into_iter()
             .filter_map(|item| {
-                let msg = format!(
-                    "{}{}, expected {}",
-                    if item.found().is_some() {
-                        "Unexpected token"
-                    } else {
-                        "Unexpected end of input"
-                    },
-                    if let Some(label) = item.label() {
-                        format!(" while parsing {}", label)
-                    } else {
-                        String::new()
-                    },
-                    if item.expected().len() == 0 {
-                        "something else".to_string()
-                    } else {
-                        item.expected()
-                            .map(|expected| match expected {
-                                Some(expected) => expected.to_string(),
-                                None => "end of input".to_string(),
-                            })
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    },
-                );
-                let span = item.span();
+                // let msg = format!(
+                //     "{}{}, expected {}",
+                //     if item.found().is_some() {
+                //         "Unexpected token"
+                //     } else {
+                //         "Unexpected end of input"
+                //     },
+                //     if let Some(label) = item.label() {
+                //         format!(" while parsing {}", label)
+                //     } else {
+                //         String::new()
+                //     },
+                //     if item.expected().len() == 0 {
+                //         "something else".to_string()
+                //     } else {
+                //         item.expected()
+                //             .map(|expected| match expected {
+                //                 Some(expected) => expected.to_string(),
+                //                 None => "end of input".to_string(),
+                //             })
+                //             .collect::<Vec<_>>()
+                //             .join(", ")
+                //     },
+                // );
+                let (message, span) = match item.reason() {
+                    chumsky::error::SimpleReason::Unclosed { span, delimiter } => {
+                        (format!("Unclosed delimiter {}", delimiter), span.clone())
+                    }
+                    chumsky::error::SimpleReason::Unexpected => (format!(
+                        "{}, expected {}",
+                        if item.found().is_some() {
+                            "Unexpected token in input"
+                        } else {
+                            "Unexpected end of input"
+                        },
+                        if item.expected().len() == 0 {
+                            "something else".to_string()
+                        } else {
+                            item.expected()
+                                .map(|expected| match expected {
+                                    Some(expected) => expected.to_string(),
+                                    None => "end of input".to_string(),
+                                })
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        }
+                    ), item.span()),
+                    chumsky::error::SimpleReason::Custom(msg) => (msg.to_string(), item.span()),
+                };
+                
                 let diagnostic = || -> ropey::Result<Diagnostic> {
                     let start_line = rope.try_char_to_line(span.start)?;
                     let first_char = rope.try_line_to_char(start_line)?;
@@ -239,7 +267,7 @@ impl Backend {
                             Position::new(start_line as u32, start_column as u32),
                             Position::new(end_line as u32, end_column as u32),
                         ),
-                        msg,
+                        message,
                     ))
                 }();
                 diagnostic.ok()

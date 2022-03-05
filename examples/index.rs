@@ -3,18 +3,14 @@ use std::collections::HashMap;
 use diagnostic_ls::chumsky::{parse, type_inference};
 
 fn main() {
-    let source = r#"
-    fn test() {
-        let a = 3;
-        let b = "test";
-        0
-    }
-    
-    "#;
+    let source = include_str!("../test.foo");
+    println!("{:?}", &source[10..11]);
     let (ast, errors) = parse(source);
-    // if let Some(ast) = ast {
-    //     println!("{:#?}", ast);
-    // }
+    if let Some(ref ast) = ast {
+        println!("{:#?}", ast);
+    } else {
+        println!("{:?}", errors);
+    }
     let mut hashmap = HashMap::new();
     if let Some(ast) = ast {
         ast.into_iter().for_each(|(k, v)| {
