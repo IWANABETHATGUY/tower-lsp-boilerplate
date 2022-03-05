@@ -1,5 +1,5 @@
 use chumsky::Parser;
-use diagnostic_ls::chumsky::parser;
+use diagnostic_ls::chumsky::parse;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tower_lsp::jsonrpc::Result;
@@ -94,14 +94,12 @@ impl LanguageServer for Backend {
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
         let rope = ropey::Rope::from_str(&params.content_changes[0].text);
         let result = {
-            let res = parser();
-            let res = res.parse_recovery(std::mem::take(&mut params.content_changes[0].text));
-
+            let res = parse(&params.content_changes[0].text);
             res.1
         };
         let diagnostics = result
             .into_iter()
-            .map(|item| {
+            .filter_map(|item| {
                 let msg = format!(
                     "{}{}, expected {}",
                     if item.found().is_some() {
@@ -127,33 +125,34 @@ impl LanguageServer for Backend {
                     },
                 );
                 let span = item.span();
-                let start_line = rope.char_to_line(span.start);
-                let first_char = rope.line_to_char(start_line);
-                let start_column = span.start - first_char;
+                let diagnostic = || -> ropey::Result<Diagnostic> {
+                    let start_line = rope.try_char_to_line(span.start)?;
+                    let first_char = rope.try_line_to_char(start_line)?;
+                    let start_column = span.start - first_char;
 
-                let end_line = rope.char_to_line(span.end);
-                let first_char = rope.line_to_char(end_line);
-                let end_column = span.end - first_char;
-                Diagnostic::new_simple(
-                    Range::new(
-                        Position::new(start_line as u32, start_column as u32),
-                        Position::new(end_line as u32, end_column as u32),
-                    ),
-                    msg,
-                )
+                    let end_line = rope.try_char_to_line(span.end)?;
+                    let first_char = rope.try_line_to_char(end_line)?;
+                    let end_column = span.end - first_char;
+                    Ok(Diagnostic::new_simple(
+                        Range::new(
+                            Position::new(start_line as u32, start_column as u32),
+                            Position::new(end_line as u32, end_column as u32),
+                        ),
+                        msg,
+                    ))
+                }();
+                diagnostic.ok()
             })
             .collect::<Vec<_>>();
-
-        self.client
-            .log_message(MessageType::INFO, format!("{:?}", diagnostics))
-            .await;
-        self.client
-            .publish_diagnostics(
-                params.text_document.uri.clone(),
-                diagnostics,
-                Some(params.text_document.version),
-            )
-            .await;
+        if !diagnostics.is_empty() {
+            self.client
+                .publish_diagnostics(
+                    params.text_document.uri.clone(),
+                    diagnostics,
+                    Some(params.text_document.version),
+                )
+                .await;
+        }
     }
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {
