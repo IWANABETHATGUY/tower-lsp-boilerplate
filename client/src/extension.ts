@@ -145,7 +145,7 @@ export function activateInlayHints(ctx: ExtensionContext) {
           resolveInlayHint(hint: InlayHint, token: CancellationToken): ProviderResult<InlayHint> {
             return {
               label: hint.label,
-              position: hint.position,
+              ...hint
             };
           }
           async provideInlayHints(
@@ -165,6 +165,7 @@ export function activateInlayHints(ctx: ExtensionContext) {
                 let endPosition = document.positionAt(end);
                 return {
                   position: endPosition,
+                  paddingLeft: true,
                   label: [
                     {
                       value: label,
