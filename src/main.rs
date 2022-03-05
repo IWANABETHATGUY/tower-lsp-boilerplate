@@ -147,10 +147,7 @@ struct TextDocumentItem {
     version: i32,
 }
 impl Backend {
-    async fn test(
-        &self,
-        params: serde_json::Value,
-    ) -> Result<Vec<(String, diagnostic_ls::chumsky::Value)>> {
+    async fn test(&self, params: serde_json::Value) -> Result<Vec<(usize, usize, String)>> {
         let mut hashmap = HashMap::new();
         if let Ok(InlayHintParams { path }) = serde_json::from_value::<InlayHintParams>(params) {
             if let Some(ast) = self.ast_map.get(&path) {
@@ -167,7 +164,20 @@ impl Backend {
         // if let Some(params )  {
         let inlay_hint_list = hashmap
             .into_iter()
-            .map(|(k, v)| (format!("{},{}", k.start, k.end), v))
+            .map(|(k, v)| {
+                (
+                    k.start,
+                    k.end,
+                    match v {
+                        diagnostic_ls::chumsky::Value::Null => "null".to_string(),
+                        diagnostic_ls::chumsky::Value::Bool(_) => "bool".to_string(),
+                        diagnostic_ls::chumsky::Value::Num(_) => "number".to_string(),
+                        diagnostic_ls::chumsky::Value::Str(_) => "string".to_string(),
+                        diagnostic_ls::chumsky::Value::List(_) => "[]".to_string(),
+                        diagnostic_ls::chumsky::Value::Func(_) => v.to_string(),
+                    },
+                )
+            })
             .collect::<Vec<_>>();
         Ok(inlay_hint_list)
         // self.client

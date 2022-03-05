@@ -488,6 +488,7 @@ pub fn type_inference(
             if let Some(value) = lhs.0.as_value() {
                 symbol_type_table.insert(name_span.clone(), value.clone());
             }
+            type_inference(rest, symbol_type_table);
         },
         Expr::Then(_, _) => (),
         Expr::Binary(_, _, _) => {},

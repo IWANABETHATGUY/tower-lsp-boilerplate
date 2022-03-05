@@ -10,14 +10,14 @@
 		"url": "https://github.com/Microsoft/vscode-extension-samples"
 	},
 	"engines": {
-		"vscode": "^1.43.0"
+		"vscode": "^1.65.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^7.0.0"
+		"vscode-languageclient": "8.0.0-next.12"
 	},
 	"devDependencies": {
 		"@types/node": "^17.0.18",
-		"@types/vscode": "^1.52.0",
-		"vscode-test": "^1.3.0"
+		"vscode-test": "^1.3.0",
+		"@types/vscode": "~1.65.0"
 	}
 }

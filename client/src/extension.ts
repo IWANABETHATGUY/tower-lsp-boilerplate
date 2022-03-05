@@ -5,7 +5,9 @@
 
 import * as path from "path";
 import {
+  languages,
   workspace,
+  EventEmitter,
   ExtensionContext,
   window,
   commands,
@@ -14,9 +16,20 @@ import {
   WorkspaceEdit,
   Selection,
   Uri,
+  InlayHintsProvider,
+  TextDocument,
+  CancellationToken,
+  Range,
+  InlayHint,
+  TextDocumentChangeEvent,
+  Position,
+  InlayHintLabelPart,
+  Location,
+  ProviderResult,
 } from "vscode";
 
 import {
+  Disposable,
   Executable,
   LanguageClient,
   LanguageClientOptions,
@@ -65,29 +78,12 @@ export async function activate(context: ExtensionContext) {
       // Notify the server about file changes to '.clientrc files contained in the workspace
       fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
     },
-    middleware: {
-      didChange(data, a) {
-        return a(data);
-      },
-      didSave(doc) {
-        client.sendRequest("custom/request", { path: window.activeTextEditor.document.uri.toString() }).then(res => {
-          console.log(res);
-        });
-      },
-    },
     traceOutputChannel,
   };
 
   // Create the language client and start the client.
   client = new LanguageClient("diagnostic-ls", "diagnostic language server", serverOptions, clientOptions);
-  client.onReady().then(() => {
-    client.onNotification("custom/notification", (...args) => {
-      console.log(...args);
-    });
-    // setTimeout(() => {
-    //
-    // }, );
-  });
+  activateInlayHints(context);
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used
   // TODO: enable ts language server
@@ -131,4 +127,72 @@ export function deactivate(): Thenable<void> | undefined {
     return undefined;
   }
   return client.stop();
+}
+
+export function activateInlayHints(ctx: ExtensionContext) {
+  const maybeUpdater = {
+    hintsProvider: null as Disposable | null,
+    updateHintsEventEmitter: new EventEmitter<void>(),
+
+    async onConfigChange() {
+      this.dispose();
+
+      const event = this.updateHintsEventEmitter.event;
+      this.hintsProvider = languages.registerInlayHintsProvider(
+        { scheme: "file", language: "plaintext" },
+        new (class implements InlayHintsProvider {
+          onDidChangeInlayHints = event;
+          resolveInlayHint(hint: InlayHint, token: CancellationToken): ProviderResult<InlayHint> {
+            return {
+              label: hint.label,
+              position: hint.position,
+            };
+          }
+          async provideInlayHints(
+            document: TextDocument,
+            range: Range,
+            token: CancellationToken
+          ): Promise<InlayHint[]> {
+            const hints = (await client
+              .sendRequest("custom/request", { path: document.uri.toString() })
+              .catch(err => null)) as [number, number, string][];
+            if (hints == null) {
+              return [];
+            } else {
+              return hints.map(item => {
+                const [start, end, label] = item;
+                let startPosition = document.positionAt(start);
+                let endPosition = document.positionAt(end);
+                return {
+                  position: endPosition,
+                  label: [
+                    {
+                      value: label,
+                      location: new Location(document.uri, startPosition),
+                    },
+                  ],
+                };
+              });
+            }
+          }
+        })()
+      );
+    },
+
+    onDidChangeTextDocument({ contentChanges, document }: TextDocumentChangeEvent) {
+      // debugger
+      // this.updateHintsEventEmitter.fire();
+    },
+
+    dispose() {
+      this.hintsProvider?.dispose();
+      this.hintsProvider = null;
+      this.updateHintsEventEmitter.dispose();
+    },
+  };
+
+  workspace.onDidChangeConfiguration(maybeUpdater.onConfigChange, maybeUpdater, ctx.subscriptions);
+  workspace.onDidChangeTextDocument(maybeUpdater.onDidChangeTextDocument, maybeUpdater, ctx.subscriptions);
+
+  maybeUpdater.onConfigChange().catch(console.error);
 }

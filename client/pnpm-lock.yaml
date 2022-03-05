@@ -2,16 +2,16 @@ lockfileVersion: 5.3
 
 specifiers:
   '@types/node': ^17.0.18
-  '@types/vscode': ^1.52.0
-  vscode-languageclient: ^7.0.0
+  '@types/vscode': ~1.65.0
+  vscode-languageclient: 8.0.0-next.12
   vscode-test: ^1.3.0
 
 dependencies:
-  vscode-languageclient: registry.npmmirror.com/vscode-languageclient/7.0.0
+  vscode-languageclient: registry.npmmirror.com/vscode-languageclient/8.0.0-next.12
 
 devDependencies:
   '@types/node': registry.npmmirror.com/@types/node/17.0.18
-  '@types/vscode': registry.npmmirror.com/@types/vscode/1.64.0
+  '@types/vscode': registry.npmmirror.com/@types/vscode/1.65.0
   vscode-test: registry.npmmirror.com/vscode-test/1.6.1
 
 packages:
@@ -29,10 +29,10 @@ packages:
     version: 17.0.18
     dev: true
 
-  registry.npmmirror.com/@types/vscode/1.64.0:
-    resolution: {integrity: sha512-bSlAWz5WtcSL3cO9tAT/KpEH9rv5OBnm93OIIFwdCshaAiqr2bp1AUyEwW9MWeCvZBHEXc3V0fTYVdVyzDNwHA==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/@types/vscode/-/vscode-1.64.0.tgz}
+  registry.npmmirror.com/@types/vscode/1.65.0:
+    resolution: {integrity: sha512-wQhExnh2nEzpjDMSKhUvnNmz3ucpd3E+R7wJkOhBNK3No6fG3VUdmVmMOKD0A8NDZDDDiQcLNxe3oGmX5SjJ5w==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/@types/vscode/-/vscode-1.65.0.tgz}
     name: '@types/vscode'
-    version: 1.64.0
+    version: 1.65.0
     dev: true
 
   registry.npmmirror.com/agent-base/6.0.2:
@@ -374,37 +374,37 @@ packages:
     version: 1.0.2
     dev: true
 
-  registry.npmmirror.com/vscode-jsonrpc/6.0.0:
-    resolution: {integrity: sha512-wnJA4BnEjOSyFMvjZdpiOwhSq9uDoK8e/kpRJDTaMYzwlkrhG1fwDIZI94CLsLzlCK5cIbMMtFlJlfR57Lavmg==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/vscode-jsonrpc/-/vscode-jsonrpc-6.0.0.tgz}
+  registry.npmmirror.com/vscode-jsonrpc/8.0.0-next.6:
+    resolution: {integrity: sha512-6Ld3RYjygn5Ih7CkAtcAwiDQC+rakj2O+PnASfNyYv3sLmm44eJpEKzuPUN30Iy2UB09AZg8T6LBKWTJTEJDVw==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/vscode-jsonrpc/-/vscode-jsonrpc-8.0.0-next.6.tgz}
     name: vscode-jsonrpc
-    version: 6.0.0
-    engines: {node: '>=8.0.0 || >=10.0.0'}
+    version: 8.0.0-next.6
+    engines: {node: '>=14.0.0'}
     dev: false
 
-  registry.npmmirror.com/vscode-languageclient/7.0.0:
-    resolution: {integrity: sha512-P9AXdAPlsCgslpP9pRxYPqkNYV7Xq8300/aZDpO35j1fJm/ncize8iGswzYlcvFw5DQUx4eVk+KvfXdL0rehNg==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/vscode-languageclient/-/vscode-languageclient-7.0.0.tgz}
+  registry.npmmirror.com/vscode-languageclient/8.0.0-next.12:
+    resolution: {integrity: sha512-4+kr1BQcoh+sA5/4XJDJXrQXGQ5Yz/x+WpsVGGzK/TOB7RwQ63ooxG6Ej7i/+aOQM4/QdmcYWmipDtG7vqcOiw==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/vscode-languageclient/-/vscode-languageclient-8.0.0-next.12.tgz}
     name: vscode-languageclient
-    version: 7.0.0
-    engines: {vscode: ^1.52.0}
+    version: 8.0.0-next.12
+    engines: {vscode: ^1.63.0}
     dependencies:
       minimatch: registry.npmmirror.com/minimatch/3.1.2
       semver: registry.npmmirror.com/semver/7.3.5
-      vscode-languageserver-protocol: registry.npmmirror.com/vscode-languageserver-protocol/3.16.0
+      vscode-languageserver-protocol: registry.npmmirror.com/vscode-languageserver-protocol/3.17.0-next.14
     dev: false
 
-  registry.npmmirror.com/vscode-languageserver-protocol/3.16.0:
-    resolution: {integrity: sha512-sdeUoAawceQdgIfTI+sdcwkiK2KU+2cbEYA0agzM2uqaUy2UpnnGHtWTHVEtS0ES4zHU0eMFRGN+oQgDxlD66A==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/vscode-languageserver-protocol/-/vscode-languageserver-protocol-3.16.0.tgz}
+  registry.npmmirror.com/vscode-languageserver-protocol/3.17.0-next.14:
+    resolution: {integrity: sha512-iangobY8dL6sFZkOx4OhRPJM9gN0I1caUsOVR+MnPozsqQUtwMXmbIcfaIf0Akp0pd3KhJDPf/tdwRX68QGeeA==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/vscode-languageserver-protocol/-/vscode-languageserver-protocol-3.17.0-next.14.tgz}
     name: vscode-languageserver-protocol
-    version: 3.16.0
+    version: 3.17.0-next.14
     dependencies:
-      vscode-jsonrpc: registry.npmmirror.com/vscode-jsonrpc/6.0.0
-      vscode-languageserver-types: registry.npmmirror.com/vscode-languageserver-types/3.16.0
+      vscode-jsonrpc: registry.npmmirror.com/vscode-jsonrpc/8.0.0-next.6
+      vscode-languageserver-types: registry.npmmirror.com/vscode-languageserver-types/3.17.0-next.7
     dev: false
 
-  registry.npmmirror.com/vscode-languageserver-types/3.16.0:
-    resolution: {integrity: sha512-k8luDIWJWyenLc5ToFQQMaSrqCHiLwyKPHKPQZ5zz21vM+vIVUSvsRpcbiECH4WR88K2XZqc4ScRcZ7nk/jbeA==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/vscode-languageserver-types/-/vscode-languageserver-types-3.16.0.tgz}
+  registry.npmmirror.com/vscode-languageserver-types/3.17.0-next.7:
+    resolution: {integrity: sha512-KH4zdG1qBXxoso61ChgpeoZYyHGJo8bV7Jv4I+fwQ1Ryy59JAxoZ9GAbhR5TeeafHctLcg6RFvY3m8Jqfu17cg==, registry: https://registry.npm.taobao.org/, tarball: https://registry.npmmirror.com/vscode-languageserver-types/-/vscode-languageserver-types-3.17.0-next.7.tgz}
     name: vscode-languageserver-types
-    version: 3.16.0
+    version: 3.17.0-next.7
     dev: false
 
   registry.npmmirror.com/vscode-test/1.6.1:

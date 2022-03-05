@@ -14,8 +14,9 @@
     "postfix"
   ],
   "engines": {
-    "vscode": "^1.44.0"
+    "vscode": "^1.65.0"
   },
+  "enabledApiProposals": [],
   "activationEvents": [
     "onLanguage:plaintext"
   ],
