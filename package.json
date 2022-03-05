@@ -20,7 +20,30 @@
     "onLanguage:plaintext"
   ],
   "main": "./client/out/extension.js",
-  "contributes": {},
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "diagnostic-ls",
+      "properties": {
+        "diagnostic-ls.trace.server": {
+          "type": "string",
+          "scope": "window",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "enumDescriptions": [
+            "No traces",
+            "Error only",
+            "Full log"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
   "scripts": {
     "postinstall": "cd client && pnpm i",
     "vscode:prepublish": "yarn run build",

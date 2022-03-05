@@ -1,155 +1,182 @@
-// use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
+/// This is the parser and interpreter for the 'Foo' language. See `tutorial.md` in the repository's root to learn
+/// about it.
 use chumsky::prelude::*;
-use std::{collections::HashMap, env, fs};
 
-#[derive(Clone, Debug)]
-pub enum Json {
-    Invalid,
-    Null,
-    Bool(bool),
-    Str(String),
+#[derive(Debug)]
+pub enum Expr {
     Num(f64),
-    Array(Vec<Json>),
-    Object(HashMap<String, Json>),
+    Var(String),
+
+    Neg(Box<Expr>),
+    Add(Box<Expr>, Box<Expr>),
+    Sub(Box<Expr>, Box<Expr>),
+    Mul(Box<Expr>, Box<Expr>),
+    Div(Box<Expr>, Box<Expr>),
+
+    Call(String, Vec<Expr>),
+    Let {
+        name: String,
+        rhs: Box<Expr>,
+        then: Box<Expr>,
+    },
+    Fn {
+        name: String,
+        args: Vec<String>,
+        body: Box<Expr>,
+        then: Box<Expr>,
+    },
 }
 
-pub fn parser() -> impl Parser<char, Json, Error = Simple<char>> {
-    recursive(|value| {
-        let frac = just('.').chain(text::digits(10));
+pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
+    let ident = text::ident().padded();
 
-        let exp = just('e')
-            .or(just('E'))
-            .ignore_then(just('+').or(just('-')).or_not())
-            .chain(text::digits(10));
+    let expr = recursive(|expr| {
+        let int = text::int(10)
+            .map(|s: String| Expr::Num(s.parse().unwrap()))
+            .padded();
 
-        let number = just('-')
-            .or_not()
-            .chain(text::int(10))
-            .chain(frac.or_not().flatten())
-            .chain::<char, _, _>(exp.or_not().flatten())
-            .collect::<String>()
-            .from_str()
-            .unwrapped()
-            .labelled("number");
+        let call = ident
+            .then(
+                expr.clone()
+                    .separated_by(just(','))
+                    .allow_trailing()
+                    .delimited_by(just('('), just(')')),
+            )
+            .map(|(f, args)| Expr::Call(f, args));
 
-        let escape = just("\\").ignore_then(
-            just('\\')
-                .or(just('/'))
-                .or(just('\"'))
-                .or(just('b').to('b'))
-                .or(just('f').to('f'))
-                .or(just('n').to('n'))
-                .or(just('r').to('\r'))
-                .or(just('t').to('\t')),
-        );
+        let atom = int
+            .or(expr.delimited_by(just('('), just(')')))
+            .or(call)
+            .or(ident.map(Expr::Var));
 
-        let string = just("\"")
-            .ignore_then(filter(|c| *c != '\\' && *c != '"').or(escape).repeated())
-            .then_ignore(just('"'))
-            .collect::<String>()
-            .labelled("string");
+        let op = |c| just(c).padded();
 
-        let array = value
+        let unary = op('-')
+            .repeated()
+            .then(atom)
+            .foldr(|_op, rhs| Expr::Neg(Box::new(rhs)));
+
+        let product = unary
             .clone()
-            .chain(just(',').ignore_then(value.clone()).repeated())
-            .or_not()
-            .flatten()
-            .delimited_by(just('['), just(']'))
-            .map(Json::Array)
-            .labelled("array");
+            .then(
+                op('*')
+                    .to(Expr::Mul as fn(_, _) -> _)
+                    .or(op('/').to(Expr::Div as fn(_, _) -> _))
+                    .then(unary)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
-        let member = string.clone().then_ignore(just(':').padded()).then(value);
-        let object = member
+        let sum = product
             .clone()
-            .chain(just(',').padded().ignore_then(member).repeated())
-            .or_not()
-            .flatten()
-            .padded()
-            .delimited_by(just('{'), just('}'))
-            .collect::<HashMap<String, Json>>()
-            .map(Json::Object)
-            .labelled("object");
+            .then(
+                op('+')
+                    .to(Expr::Add as fn(_, _) -> _)
+                    .or(op('-').to(Expr::Sub as fn(_, _) -> _))
+                    .then(product)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
-        just("null")
-            .to(Json::Null)
-            .labelled("null")
-            .or(just("true").to(Json::Bool(true)).labelled("true"))
-            .or(just("false").to(Json::Bool(false)).labelled("false"))
-            .or(number.map(Json::Num))
-            .or(string.map(Json::Str))
-            .or(array)
-            .or(object)
-            .recover_with(nested_delimiters('{', '}', [('[', ']')], |_| Json::Invalid))
-            .recover_with(nested_delimiters('[', ']', [('{', '}')], |_| Json::Invalid))
-            .recover_with(skip_then_retry_until(['}', ']']))
-            .padded()
-    })
-    .then_ignore(end().recover_with(skip_then_retry_until([])))
+        sum.padded()
+    });
+
+    let decl = recursive(|decl| {
+        let r#let = text::keyword("let")
+            .ignore_then(ident)
+            .then_ignore(just('='))
+            .then(expr.clone())
+            .then_ignore(just(';'))
+            .then(decl.clone())
+            .map(|((name, rhs), then)| Expr::Let {
+                name,
+                rhs: Box::new(rhs),
+                then: Box::new(then),
+            });
+
+        let r#fn = text::keyword("fn")
+            .ignore_then(ident)
+            .then(ident.repeated())
+            .then_ignore(just('='))
+            .then(expr.clone())
+            .then_ignore(just(';'))
+            .then(decl)
+            .map(|(((name, args), body), then)| Expr::Fn {
+                name,
+                args,
+                body: Box::new(body),
+                then: Box::new(then),
+            });
+
+        r#let.or(r#fn).or(expr).padded()
+    });
+
+    decl.then_ignore(end())
 }
 
-// fn main() {
-//     let src = fs::read_to_string(env::args().nth(1).expect("Expected file argument"))
-//         .expect("Failed to read file");
-
-//     let (json, errs) = parser().parse_recovery(src.trim());
-//     println!("{:#?}", json);
-//     errs.into_iter().for_each(|e| {
-//         let msg = format!(
-//             "{}{}, expected {}",
-//             if e.found().is_some() {
-//                 "Unexpected token"
+// fn eval<'a>(
+//     expr: &'a Expr,
+//     vars: &mut Vec<(&'a String, f64)>,
+//     funcs: &mut Vec<(&'a String, &'a [String], &'a Expr)>,
+// ) -> Result<f64, String> {
+//     match expr {
+//         Expr::Num(x) => Ok(*x),
+//         Expr::Neg(a) => Ok(-eval(a, vars, funcs)?),
+//         Expr::Add(a, b) => Ok(eval(a, vars, funcs)? + eval(b, vars, funcs)?),
+//         Expr::Sub(a, b) => Ok(eval(a, vars, funcs)? - eval(b, vars, funcs)?),
+//         Expr::Mul(a, b) => Ok(eval(a, vars, funcs)? * eval(b, vars, funcs)?),
+//         Expr::Div(a, b) => Ok(eval(a, vars, funcs)? / eval(b, vars, funcs)?),
+//         Expr::Var(name) => {
+//             if let Some((_, val)) = vars.iter().rev().find(|(var, _)| *var == name) {
+//                 Ok(*val)
 //             } else {
-//                 "Unexpected end of input"
-//             },
-//             if let Some(label) = e.label() {
-//                 format!(" while parsing {}", label)
-//             } else {
-//                 String::new()
-//             },
-//             if e.expected().len() == 0 {
-//                 "something else".to_string()
-//             } else {
-//                 e.expected()
-//                     .map(|expected| match expected {
-//                         Some(expected) => expected.to_string(),
-//                         None => "end of input".to_string(),
-//                     })
-//                     .collect::<Vec<_>>()
-//                     .join(", ")
-//             },
-//         );
-
-//         let report = Report::build(ReportKind::Error, (), e.span().start)
-//             .with_code(3)
-//             .with_message(msg)
-//             .with_label(
-//                 Label::new(e.span())
-//                     .with_message(format!(
-//                         "Unexpected {}",
-//                         e.found()
-//                             .map(|c| format!("token {}", c.fg(Color::Red)))
-//                             .unwrap_or_else(|| "end of input".to_string())
+//                 Err(format!("Cannot find variable `{}` in scope", name))
+//             }
+//         }
+//         Expr::Let { name, rhs, then } => {
+//             let rhs = eval(rhs, vars, funcs)?;
+//             vars.push((name, rhs));
+//             let output = eval(then, vars, funcs);
+//             vars.pop();
+//             output
+//         }
+//         Expr::Call(name, args) => {
+//             if let Some((_, arg_names, body)) =
+//                 funcs.iter().rev().find(|(var, _, _)| *var == name).copied()
+//             {
+//                 if arg_names.len() == args.len() {
+//                     let mut args = args
+//                         .iter()
+//                         .map(|arg| eval(arg, vars, funcs))
+//                         .zip(arg_names.iter())
+//                         .map(|(val, name)| Ok((name, val?)))
+//                         .collect::<Result<_, String>>()?;
+//                     vars.append(&mut args);
+//                     let output = eval(body, vars, funcs);
+//                     vars.truncate(vars.len() - args.len());
+//                     output
+//                 } else {
+//                     Err(format!(
+//                         "Wrong number of arguments for function `{}`: expected {}, found {}",
+//                         name,
+//                         arg_names.len(),
+//                         args.len(),
 //                     ))
-//                     .with_color(Color::Red),
-//             );
-
-//         let report = match e.reason() {
-//             chumsky::error::SimpleReason::Unclosed { span, delimiter } => report.with_label(
-//                 Label::new(span.clone())
-//                     .with_message(format!(
-//                         "Unclosed delimiter {}",
-//                         delimiter.fg(Color::Yellow)
-//                     ))
-//                     .with_color(Color::Yellow),
-//             ),
-//             chumsky::error::SimpleReason::Unexpected => report,
-//             chumsky::error::SimpleReason::Custom(msg) => report.with_label(
-//                 Label::new(e.span())
-//                     .with_message(format!("{}", msg.fg(Color::Yellow)))
-//                     .with_color(Color::Yellow),
-//             ),
-//         };
-
-//         report.finish().print(Source::from(&src)).unwrap();
-//     });
+//                 }
+//             } else {
+//                 Err(format!("Cannot find function `{}` in scope", name))
+//             }
+//         }
+//         Expr::Fn {
+//             name,
+//             args,
+//             body,
+//             then,
+//         } => {
+//             funcs.push((name, args, body));
+//             let output = eval(then, vars, funcs);
+//             funcs.pop();
+//             output
+//         }
+//     }
 // }

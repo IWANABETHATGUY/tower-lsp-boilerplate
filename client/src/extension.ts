@@ -54,7 +54,9 @@ export async function activate(context: ExtensionContext) {
   };
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used
-
+  function test<T>(a: T) {
+    return a;
+  }
   // Options to control the language client
   let clientOptions: LanguageClientOptions = {
     // Register the server for plain text documents
@@ -63,13 +65,29 @@ export async function activate(context: ExtensionContext) {
       // Notify the server about file changes to '.clientrc files contained in the workspace
       fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
     },
-    middleware: {},
+    middleware: {
+      didChange(data, a) {
+        return a(data);
+      },
+      didSave(doc) {
+        client.sendRequest("custom/request", { path: window.activeTextEditor.document.uri }).then(res => {
+          console.log(res);
+        });
+      },
+    },
     traceOutputChannel,
   };
 
   // Create the language client and start the client.
   client = new LanguageClient("diagnostic-ls", "diagnostic language server", serverOptions, clientOptions);
-
+  client.onReady().then(() => {
+    client.onNotification("custom/notification", (...args) => {
+      console.log(...args);
+    });
+    // setTimeout(() => {
+    //
+    // }, );
+  });
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used
   // TODO: enable ts language server
