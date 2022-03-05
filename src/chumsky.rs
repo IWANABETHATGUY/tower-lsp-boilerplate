@@ -23,7 +23,8 @@ pub fn parser() -> impl Parser<char, Json, Error = Simple<char>> {
             .chain(text::digits(10));
 
         let number = just('-')
-            .or_not() .chain(text::int(10))
+            .or_not()
+            .chain(text::int(10))
             .chain(frac.or_not().flatten())
             .chain::<char, _, _>(exp.or_not().flatten())
             .collect::<String>()
@@ -35,11 +36,11 @@ pub fn parser() -> impl Parser<char, Json, Error = Simple<char>> {
             just('\\')
                 .or(just('/'))
                 .or(just('\"'))
-                .or(just('b').to("b".to_string()))
-                .or(just('f').to("f".to_string()))
-                .or(just('n').to("n".to_string()))
-                .or(just('r').to("\r".to_string()))
-                .or(just('t').to("\t")),
+                .or(just('b').to('b'))
+                .or(just('f').to('f'))
+                .or(just('n').to('n'))
+                .or(just('r').to('\r'))
+                .or(just('t').to('\t')),
         );
 
         let string = just("\"")
