@@ -6,14 +6,15 @@ use crate::chumsky::{Expr, Func, Spanned};
 /// return (need_to_continue_search, founded reference)
 pub fn get_definition(ast: &HashMap<String, Func>, ident_offset: usize) -> Option<Spanned<String>> {
     let mut vector = Vector::new();
-    for (k, v) in ast.iter() {
+    for (_, v) in ast.iter() {
         if v.name.1.end < ident_offset {
             vector.push_back((v.name.clone()));
         }
     }
 
-    for (k, v) in ast.iter() {
-        match get_definition_of_expr(&v.body, vector.clone(), ident_offset) {
+    for (_, v) in ast.iter() {
+        let args = v.args.iter().map(|arg| arg.clone()).collect::<Vector<_>>();
+        match get_definition_of_expr(&v.body, args + vector.clone(), ident_offset) {
             (_, Some(value)) => {
                 return Some(value);
             }
