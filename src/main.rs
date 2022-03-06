@@ -1,9 +1,10 @@
 #![feature(async_closure)]
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chumsky::Parser;
 use dashmap::DashMap;
 use diagnostic_ls::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken, Spanned};
+use diagnostic_ls::completion::completion;
 use diagnostic_ls::jump_definition::{get_definition, get_definition_of_expr};
 use diagnostic_ls::semantic_token::{self, semantic_token_from_ast, LEGEND_TYPE};
 use log::{debug, info};
@@ -199,7 +200,7 @@ impl LanguageServer for Backend {
             let char = rope.try_line_to_char(position.line as usize).ok()?;
             let offset = char + position.character as usize;
             let span = get_definition(&ast, offset);
-            span.and_then(|(name, range)| {
+            span.and_then(|(_, range)| {
                 let start_line = rope.try_char_to_line(range.start).ok()?;
                 let start_line_first = rope.try_line_to_char(start_line).ok()?;
                 let start_column = range.start - start_line_first;
@@ -283,11 +284,27 @@ impl LanguageServer for Backend {
             .await;
     }
 
-    async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
-        Ok(Some(CompletionResponse::Array(vec![
-            CompletionItem::new_simple("Hello".to_string(), "Some detail".to_string()),
-            CompletionItem::new_simple("Bye".to_string(), "More detail".to_string()),
-        ])))
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+        let completions = || -> Option<Vec<CompletionItem>> {
+            let rope = self.document_map.get(&uri.to_string())?;
+            let ast = self.ast_map.get(&uri.to_string())?;
+            let char = rope.try_line_to_char(position.line as usize).ok()?;
+            let offset = char + position.character as usize;
+            let completions = completion(&ast, offset);
+            let mut set = HashSet::new();
+            let mut ret = Vec::with_capacity(completions.len());
+            for (name, _) in completions {
+                if set.contains(&name) {
+                } else {
+                    set.insert(name.clone());
+                    ret.push(CompletionItem::new_simple(name.clone(), name));
+                }
+            }
+            Some(ret)
+        }();
+        Ok(completions.map(CompletionResponse::Array))
     }
 }
 #[derive(Debug, Deserialize, Serialize)]
