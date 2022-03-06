@@ -293,13 +293,36 @@ impl LanguageServer for Backend {
             let char = rope.try_line_to_char(position.line as usize).ok()?;
             let offset = char + position.character as usize;
             let completions = completion(&ast, offset);
-            let mut set = HashSet::new();
             let mut ret = Vec::with_capacity(completions.len());
-            for (name, _) in completions {
-                if set.contains(&name) {
-                } else {
-                    set.insert(name.clone());
-                    ret.push(CompletionItem::new_simple(name.clone(), name));
+            for (_, item) in completions {
+                match item {
+                    diagnostic_ls::completion::ImCompleteCompletionItem::Variable(var) => {
+                        ret.push(CompletionItem {
+                            label: var.clone(),
+                            insert_text: Some(var.clone()),
+                            kind: Some(CompletionItemKind::VARIABLE),
+                            detail: Some(var),
+                            ..Default::default()
+                        });
+                    }
+                    diagnostic_ls::completion::ImCompleteCompletionItem::Function(name, args) => {
+                        ret.push(CompletionItem {
+                            label: name.clone(),
+                            kind: Some(CompletionItemKind::FUNCTION),
+                            detail: Some(name.clone()),
+                            insert_text: Some(format!(
+                                "{}({})",
+                                name,
+                                args.iter()
+                                    .enumerate()
+                                    .map(|(index, item)| { format!("${{{}:{}}}", index + 1, item) })
+                                    .collect::<Vec<_>>()
+                                    .join(",")
+                            )),
+                            insert_text_format: Some(InsertTextFormat::SNIPPET),
+                            ..Default::default()
+                        });
+                    }
                 }
             }
             Some(ret)
