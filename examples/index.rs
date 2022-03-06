@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use diagnostic_ls::chumsky::{parse, type_inference};
+use im_rc::Vector;
 
 fn main() {
     let source = include_str!("./test.nrs");

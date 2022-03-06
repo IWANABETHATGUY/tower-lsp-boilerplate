@@ -3,7 +3,8 @@ use std::collections::HashMap;
 
 use chumsky::Parser;
 use dashmap::DashMap;
-use diagnostic_ls::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken};
+use diagnostic_ls::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken, Spanned};
+use diagnostic_ls::jump_definition::{get_definition, get_definition_of_expr};
 use diagnostic_ls::semantic_token::{self, semantic_token_from_ast, LEGEND_TYPE};
 use log::{debug, info};
 use ropey::Rope;
@@ -73,6 +74,8 @@ impl LanguageServer for Backend {
                         },
                     ),
                 ),
+                // definition: Some(GotoCapability::default()),
+                definition_provider: Some(OneOf::Left(true)),
                 ..ServerCapabilities::default()
             },
         })
@@ -183,6 +186,38 @@ impl LanguageServer for Backend {
         Ok(())
     }
 
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let definition = || -> Option<GotoDefinitionResponse> {
+            let uri = params.text_document_position_params.text_document.uri;
+            let ast = self.ast_map.get(&uri.to_string())?;
+            let rope = self.document_map.get(&uri.to_string())?;
+
+            let position = params.text_document_position_params.position;
+            let char = rope.try_line_to_char(position.line as usize).ok()?;
+            let offset = char + position.character as usize;
+            let span = get_definition(&ast, offset);
+            span.and_then(|(name, range)| {
+                let start_line = rope.try_char_to_line(range.start).ok()?;
+                let start_line_first = rope.try_line_to_char(start_line).ok()?;
+                let start_column = range.start - start_line_first;
+
+                let end_line = rope.try_char_to_line(range.end).ok()?;
+                let end_line_first = rope.try_line_to_char(end_line).ok()?;
+                let end_column = range.end - end_line_first;
+
+                let start_position = Position::new(start_line as u32, start_column as u32);
+                let end_position = Position::new(end_line as u32, end_column as u32);
+
+                let range = Range::new(start_position, end_position);
+
+                Some(GotoDefinitionResponse::Scalar(Location::new(uri, range)))
+            })
+        }();
+        Ok(definition)
+    }
     async fn did_change_workspace_folders(&self, _: DidChangeWorkspaceFoldersParams) {
         self.client
             .log_message(MessageType::INFO, "workspace folders changed!")

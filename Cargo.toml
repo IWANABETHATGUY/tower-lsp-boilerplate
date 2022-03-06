@@ -15,6 +15,7 @@ tower-lsp = { git = "https://github.com/ebkalderon/tower-lsp", branch = "support
 serde = { version = "1.0", features = ["derive"] }
 dashmap = "5.1.0"
 log = "0.4.14"
+im-rc = "15.0.0"
 
 
 [debug]
