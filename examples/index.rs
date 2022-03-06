@@ -4,7 +4,17 @@ use diagnostic_ls::chumsky::{parse, type_inference};
 
 fn main() {
     // let source = include_str!("../test.foo");
-    let source = "";
+    let source = r#"
+    // test
+    fn test() {
+        if a == 3 {
+            0
+        } else {
+            4
+        };
+        0
+    }
+    "#;
     // println!("{:?}", &source[10..11]);
     let (ast, errors, semantic_tokens) = parse(source);
     if let Some(ref ast) = ast {

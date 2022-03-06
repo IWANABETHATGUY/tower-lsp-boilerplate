@@ -497,10 +497,13 @@ pub fn type_inference(expr: &Spanned<Expr>, symbol_type_table: &mut HashMap<Span
             }
             type_inference(rest, symbol_type_table);
         }
-        Expr::Then(_, _) => (),
+        Expr::Then(first, second) => {
+            type_inference(first, symbol_type_table);
+            type_inference(second, symbol_type_table);
+        }
         Expr::Binary(_, _, _) => {}
         Expr::Call(_, _) => {}
-        Expr::If(_, consequent, alternative) => {
+        Expr::If(test, consequent, alternative) => {
             type_inference(consequent, symbol_type_table);
             type_inference(alternative, symbol_type_table);
         }
@@ -713,7 +716,13 @@ pub fn type_inference(expr: &Spanned<Expr>, symbol_type_table: &mut HashMap<Span
 //     })
 // }
 
-pub fn parse(src: &str) -> (Option<HashMap<String, Func>>, Vec<Simple<String>>, Vec<ImCompleteSemanticToken>) {
+pub fn parse(
+    src: &str,
+) -> (
+    Option<HashMap<String, Func>>,
+    Vec<Simple<String>>,
+    Vec<ImCompleteSemanticToken>,
+) {
     let (tokens, errs) = lexer().parse_recovery(src);
 
     let (ast, tokenize_errors, semantic_tokens) = if let Some(tokens) = tokens {
