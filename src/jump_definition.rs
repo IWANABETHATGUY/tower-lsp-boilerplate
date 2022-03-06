@@ -8,7 +8,7 @@ pub fn get_definition(ast: &HashMap<String, Func>, ident_offset: usize) -> Optio
     let mut vector = Vector::new();
     for (_, v) in ast.iter() {
         if v.name.1.end < ident_offset {
-            vector.push_back((v.name.clone()));
+            vector.push_back(v.name.clone());
         }
     }
 
