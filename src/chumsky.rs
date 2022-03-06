@@ -13,12 +13,12 @@ use crate::semantic_token::{self, LEGEND_TYPE};
 pub type Span = std::ops::Range<usize>;
 #[derive(Debug)]
 pub struct ImCompleteSemanticToken {
-    pub start: u32,
-    pub length: u32,
-    pub token_type: u32,
+    pub start: usize,
+    pub length: usize,
+    pub token_type: usize,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-enum Token {
+pub enum Token {
     Null,
     Bool(bool),
     Num(String),
@@ -218,9 +218,9 @@ impl Expr {
 // A function node in the AST.
 #[derive(Debug)]
 pub struct Func {
-    args: Vec<String>,
+    pub args: Vec<Spanned<String>>,
     pub body: Spanned<Expr>,
-    name: Spanned<String>,
+    pub name: Spanned<String>,
 }
 
 fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone {
@@ -434,6 +434,7 @@ pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simpl
 
     // Argument lists are just identifiers separated by commas, surrounded by parentheses
     let args = ident
+        .map_with_span(|name, span| (name, span))
         .clone()
         .separated_by(just(Token::Ctrl(',')))
         .allow_trailing()
@@ -736,70 +737,70 @@ pub fn parse(
                 Token::Bool(_) => None,
 
                 Token::Num(_) => Some(ImCompleteSemanticToken {
-                    start: span.start as u32,
-                    length: span.len() as u32,
+                    start: span.start,
+                    length: span.len(),
                     token_type: LEGEND_TYPE
                         .iter()
                         .position(|item| item == &SemanticTokenType::NUMBER)
-                        .unwrap() as u32,
+                        .unwrap(),
                 }),
                 Token::Str(_) => Some(ImCompleteSemanticToken {
-                    start: span.start as u32,
-                    length: span.len() as u32,
+                    start: span.start,
+                    length: span.len(),
                     token_type: LEGEND_TYPE
                         .iter()
                         .position(|item| item == &SemanticTokenType::STRING)
-                        .unwrap() as u32,
+                        .unwrap(),
                 }),
                 Token::Op(_) => Some(ImCompleteSemanticToken {
-                    start: span.start as u32,
-                    length: span.len() as u32,
+                    start: span.start,
+                    length: span.len(),
                     token_type: LEGEND_TYPE
                         .iter()
                         .position(|item| item == &SemanticTokenType::OPERATOR)
-                        .unwrap() as u32,
+                        .unwrap(),
                 }),
                 Token::Ctrl(_) => None,
                 Token::Ident(_) => None,
                 Token::Fn => Some(ImCompleteSemanticToken {
-                    start: span.start as u32,
-                    length: span.len() as u32,
+                    start: span.start,
+                    length: span.len(),
                     token_type: LEGEND_TYPE
                         .iter()
                         .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap() as u32,
+                        .unwrap(),
                 }),
                 Token::Let => Some(ImCompleteSemanticToken {
-                    start: span.start as u32,
-                    length: span.len() as u32,
+                    start: span.start,
+                    length: span.len(),
                     token_type: LEGEND_TYPE
                         .iter()
                         .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap() as u32,
+                        .unwrap(),
                 }),
                 Token::Print => Some(ImCompleteSemanticToken {
-                    start: span.start as u32,
-                    length: span.len() as u32,
+                    start: span.start,
+                    length: span.len(),
                     token_type: LEGEND_TYPE
                         .iter()
                         .position(|item| item == &SemanticTokenType::FUNCTION)
-                        .unwrap() as u32,
+                        .unwrap(),
                 }),
                 Token::If => Some(ImCompleteSemanticToken {
-                    start: span.start as u32,
-                    length: span.len() as u32,
+                    start: span.start,
+                    length: span.len(),
                     token_type: LEGEND_TYPE
                         .iter()
                         .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap() as u32,
+                        .unwrap(),
                 }),
                 Token::Else => Some(ImCompleteSemanticToken {
-                    start: span.start as u32,
-                    length: span.len() as u32,
+                    start: span.start,
+                    length: span.len(),
                     token_type: LEGEND_TYPE
                         .iter()
                         .position(|item| item == &SemanticTokenType::KEYWORD)
-                        .unwrap() as u32,
+                        .unwrap(),
                 }),
             })
             .collect::<Vec<_>>();

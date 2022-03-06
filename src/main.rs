@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use chumsky::Parser;
 use dashmap::DashMap;
 use diagnostic_ls::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken};
-use diagnostic_ls::semantic_token::{self, LEGEND_TYPE};
+use diagnostic_ls::semantic_token::{self, semantic_token_from_ast, LEGEND_TYPE};
 use log::{debug, info};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -87,8 +87,12 @@ impl LanguageServer for Backend {
             .log_message(MessageType::LOG, "semantic_token_full")
             .await;
         let semantic_tokens = || -> Option<Vec<SemanticToken>> {
-            let im_complete_tokens = self.semantic_token_map.get(&uri)?;
+            let mut im_complete_tokens = self.semantic_token_map.get_mut(&uri)?;
             let rope = self.document_map.get(&uri)?;
+            let ast = self.ast_map.get(&uri)?;
+            let extends_tokens = semantic_token_from_ast(&ast);
+            im_complete_tokens.extend(extends_tokens);
+            im_complete_tokens.sort_by(|a, b| a.start.cmp(&b.start));
             let mut pre_line = 0;
             let mut pre_start = 0;
             let semantic_tokens = im_complete_tokens
@@ -106,8 +110,8 @@ impl LanguageServer for Backend {
                     let ret = Some(SemanticToken {
                         delta_line,
                         delta_start,
-                        length: token.length,
-                        token_type: token.token_type,
+                        length: token.length as u32,
+                        token_type: token.token_type as u32,
                         token_modifiers_bitset: 0,
                     });
                     pre_line = line;
@@ -149,8 +153,8 @@ impl LanguageServer for Backend {
                         } else {
                             start
                         },
-                        length: token.length,
-                        token_type: token.token_type,
+                        length: token.length as u32,
+                        token_type: token.token_type as u32,
                         token_modifiers_bitset: 0,
                     });
                     pre_line = line;
