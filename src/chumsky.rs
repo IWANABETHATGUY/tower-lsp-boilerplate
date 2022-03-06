@@ -220,6 +220,7 @@ impl Expr {
 pub struct Func {
     args: Vec<String>,
     pub body: Spanned<Expr>,
+    name: Spanned<String>
 }
 
 fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone {
@@ -460,7 +461,7 @@ pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simpl
                     |span| (Expr::Error, span),
                 )),
         )
-        .map(|((name, args), body)| (name, Func { args, body }))
+        .map(|((name, args), body)| (name.clone(), Func { args, body, name }))
         .labelled("function");
 
     func.repeated()
