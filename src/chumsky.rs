@@ -1,5 +1,6 @@
 use chumsky::Parser;
 use chumsky::{prelude::*, stream::Stream};
+use log::info;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs};
@@ -726,7 +727,7 @@ pub fn parse(
     let (tokens, errs) = lexer().parse_recovery(src);
 
     let (ast, tokenize_errors, semantic_tokens) = if let Some(tokens) = tokens {
-        // println!("Tokens = {:?}", tokens);
+        // info!("Tokens = {:?}", tokens);
         let semantic_tokens = tokens
             .iter()
             .filter_map(|(token, span)| match token {

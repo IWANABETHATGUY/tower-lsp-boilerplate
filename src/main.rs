@@ -5,6 +5,7 @@ use chumsky::Parser;
 use dashmap::DashMap;
 use diagnostic_ls::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken};
 use diagnostic_ls::semantic_token::{self, LEGEND_TYPE};
+use log::{debug, info};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -96,13 +97,15 @@ impl LanguageServer for Backend {
                     let line = rope.try_byte_to_line(token.start as usize).ok()? as u32;
                     let first = rope.try_line_to_char(line as usize).ok()? as u32;
                     let start = rope.try_byte_to_char(token.start as usize).ok()? as u32 - first;
+                    let delta_line = line - pre_line;
+                    let delta_start = if delta_line == 0 {
+                        start - pre_start
+                    } else {
+                        start
+                    };
                     let ret = Some(SemanticToken {
-                        delta_line: line - pre_line,
-                        delta_start: if start >= pre_start {
-                            start - pre_start
-                        } else {
-                            start
-                        },
+                        delta_line,
+                        delta_start,
                         length: token.length,
                         token_type: token.token_type,
                         token_modifiers_bitset: 0,
@@ -128,9 +131,6 @@ impl LanguageServer for Backend {
         params: SemanticTokensRangeParams,
     ) -> Result<Option<SemanticTokensRangeResult>> {
         let uri = params.text_document.uri.to_string();
-        self.client
-            .log_message(MessageType::LOG, "semantic_token_full")
-            .await;
         let semantic_tokens = || -> Option<Vec<SemanticToken>> {
             let im_complete_tokens = self.semantic_token_map.get(&uri)?;
             let rope = self.document_map.get(&uri)?;
