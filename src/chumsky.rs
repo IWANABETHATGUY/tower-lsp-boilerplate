@@ -1,7 +1,7 @@
 use chumsky::Parser;
 use chumsky::{prelude::*, stream::Stream};
-use log::info;
 use core::fmt;
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs};
 use tower_lsp::lsp_types::{SemanticToken, SemanticTokenType};
@@ -220,7 +220,7 @@ impl Expr {
 pub struct Func {
     args: Vec<String>,
     pub body: Spanned<Expr>,
-    name: Spanned<String>
+    name: Spanned<String>,
 }
 
 fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone {
@@ -751,7 +751,14 @@ pub fn parse(
                         .position(|item| item == &SemanticTokenType::STRING)
                         .unwrap() as u32,
                 }),
-                Token::Op(_) => None,
+                Token::Op(_) => Some(ImCompleteSemanticToken {
+                    start: span.start as u32,
+                    length: span.len() as u32,
+                    token_type: LEGEND_TYPE
+                        .iter()
+                        .position(|item| item == &SemanticTokenType::OPERATOR)
+                        .unwrap() as u32,
+                }),
                 Token::Ctrl(_) => None,
                 Token::Ident(_) => None,
                 Token::Fn => Some(ImCompleteSemanticToken {
