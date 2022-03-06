@@ -3,3 +3,5 @@
 - [x] InlayHint for LiteralType
 - [x] semantic token
 - [x] syntactic error diagnostic
+- [ ] code completion
+- [ ] go to definition

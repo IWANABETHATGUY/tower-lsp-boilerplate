@@ -1,7 +1,6 @@
 use chumsky::Parser;
 use chumsky::{prelude::*, stream::Stream};
 use core::fmt;
-use log::info;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs};
 use tower_lsp::lsp_types::{SemanticToken, SemanticTokenType};
