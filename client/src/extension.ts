@@ -49,8 +49,8 @@ export async function activate(context: ExtensionContext) {
   // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
   // let debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
 
-  const traceOutputChannel = window.createOutputChannel("Diagnostic Language Server trace");
-  const command = process.env.SERVER_PATH || "tjs-language-server";
+  const traceOutputChannel = window.createOutputChannel("Nrs Language Server trace");
+  const command = process.env.SERVER_PATH || "nrs-language-server";
   const run: Executable = {
     command,
     options: {
@@ -70,7 +70,7 @@ export async function activate(context: ExtensionContext) {
   // Options to control the language client
   let clientOptions: LanguageClientOptions = {
     // Register the server for plain text documents
-    documentSelector: [{ scheme: "file", language: "plaintext" }],
+    documentSelector: [{ scheme: "file", language: "nrs" }],
     synchronize: {
       // Notify the server about file changes to '.clientrc files contained in the workspace
       fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
@@ -79,7 +79,7 @@ export async function activate(context: ExtensionContext) {
   };
 
   // Create the language client and start the client.
-  client = new LanguageClient("diagnostic-ls", "diagnostic language server", serverOptions, clientOptions);
+  client = new LanguageClient("nrs-language-server", "nrs language server", serverOptions, clientOptions);
   activateInlayHints(context);
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used
@@ -136,7 +136,7 @@ export function activateInlayHints(ctx: ExtensionContext) {
 
       const event = this.updateHintsEventEmitter.event;
       this.hintsProvider = languages.registerInlayHintsProvider(
-        { scheme: "file", language: "plaintext" },
+        { scheme: "file", language: "nrs" },
         new (class implements InlayHintsProvider {
           onDidChangeInlayHints = event;
           resolveInlayHint(hint: InlayHint, token: CancellationToken): ProviderResult<InlayHint> {

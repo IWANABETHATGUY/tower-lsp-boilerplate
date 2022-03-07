@@ -1,32 +1,35 @@
 {
-  "name": "tjs-postfix",
-  "description": "A postfix language server for typescript and javascript",
+  "name": "nrs-language-server",
+  "description": "nano rust language server",
   "author": "Microsoft Corporation",
   "license": "MIT",
   "version": "1.5.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/IWANABETHATGUY/tjs-postfix"
-  },
-  "publisher": "IWANABETHATGUY",
   "categories": [],
   "keywords": [
-    "postfix"
+    "language-server",
+    "tower-lsp"
   ],
   "engines": {
     "vscode": "^1.65.0"
   },
   "enabledApiProposals": [],
   "activationEvents": [
-    "onLanguage:plaintext"
+    "onFileSystem:file",
+    "onLanguage:nrs"
   ],
   "main": "./client/out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "nrs",
+        "extensions": [".nrs"]
+      }
+    ],
     "configuration": {
       "type": "object",
-      "title": "diagnostic-ls",
+      "title": "nrs-language-server",
       "properties": {
-        "diagnostic-ls.trace.server": {
+        "nrs-language-server.trace.server": {
           "type": "string",
           "scope": "window",
           "enum": [
