@@ -1,7 +1,6 @@
 {
   "name": "nrs-language-server",
   "description": "nano rust language server",
-  "author": "Microsoft Corporation",
   "license": "MIT",
   "version": "1.5.0",
   "categories": [],

@@ -1,11 +1,10 @@
-#![feature(async_closure)]
 use std::collections::{HashMap, HashSet};
 
-use chumsky::Parser;
 use dashmap::DashMap;
 use diagnostic_ls::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken, Spanned};
 use diagnostic_ls::completion::completion;
 use diagnostic_ls::jump_definition::{get_definition, get_definition_of_expr};
+use diagnostic_ls::reference::get_reference;
 use diagnostic_ls::semantic_token::{self, semantic_token_from_ast, LEGEND_TYPE};
 use log::{debug, info};
 use ropey::Rope;
@@ -77,11 +76,11 @@ impl LanguageServer for Backend {
                 ),
                 // definition: Some(GotoCapability::default()),
                 definition_provider: Some(OneOf::Left(true)),
+                references_provider: Some(OneOf::Left(true)),
                 ..ServerCapabilities::default()
             },
         })
     }
-
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,
@@ -185,6 +184,41 @@ impl LanguageServer for Backend {
 
     async fn shutdown(&self) -> Result<()> {
         Ok(())
+    }
+
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let reference_list = || -> Option<Vec<Location>> {
+            let uri = params.text_document_position.text_document.uri;
+            let ast = self.ast_map.get(&uri.to_string())?;
+            let rope = self.document_map.get(&uri.to_string())?;
+
+            let position = params.text_document_position.position;
+            let char = rope.try_line_to_char(position.line as usize).ok()?;
+            let offset = char + position.character as usize;
+            let reference_list = get_reference(&ast, offset);
+            log::info!("{:?}", reference_list);
+            let ret = reference_list
+                .into_iter()
+                .filter_map(|(_, range)| {
+                    let start_line = rope.try_char_to_line(range.start).ok()?;
+                    let start_line_first = rope.try_line_to_char(start_line).ok()?;
+                    let start_column = range.start - start_line_first;
+
+                    let end_line = rope.try_char_to_line(range.end).ok()?;
+                    let end_line_first = rope.try_line_to_char(end_line).ok()?;
+                    let end_column = range.end - end_line_first;
+
+                    let start_position = Position::new(start_line as u32, start_column as u32);
+                    let end_position = Position::new(end_line as u32, end_column as u32);
+
+                    let range = Range::new(start_position, end_position);
+
+                    Some(Location::new(uri.clone(), range))
+                })
+                .collect::<Vec<_>>();
+            Some(ret)
+        }();
+        Ok(reference_list)
     }
 
     async fn goto_definition(
