@@ -21,7 +21,6 @@ pub fn get_reference(ast: &HashMap<String, Func>, ident_offset: usize) -> Vec<Sp
     // }
     let mut kv_list = ast.iter().collect::<Vec<_>>();
     kv_list.sort_by(|a, b| a.1.name.start().cmp(&b.1.name.start()));
-    info!("{:?}", kv_list.iter().map(|(a, b)| a).collect::<Vec<_>>());
     let mut reference_symbol = ReferenceSymbol::Founding(ident_offset);
     // let mut fn_vector = Vector::new();
     for (_, v) in kv_list {
@@ -30,7 +29,16 @@ pub fn get_reference(ast: &HashMap<String, Func>, ident_offset: usize) -> Vec<Sp
             reference_symbol = ReferenceSymbol::Founded(v.name.clone());
         };
         vector.push_back(v.name.clone());
-        let args = v.args.iter().map(|arg| arg.clone()).collect::<Vector<_>>();
+        let args = v
+            .args
+            .iter()
+            .map(|arg| {
+                if ident_offset >= arg.1.start && ident_offset < arg.1.end {
+                    reference_symbol = ReferenceSymbol::Founded(arg.clone());
+                }
+                arg.clone()
+            })
+            .collect::<Vector<_>>();
         info!("{:?}", args.clone() + vector.clone());
         get_reference_of_expr(
             &v.body,
