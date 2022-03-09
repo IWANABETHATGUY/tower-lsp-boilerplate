@@ -1,6 +1,10 @@
 # Boilerplate for a  rust language server powered by `tower-lsp` 
-## introduction
+## Introduction
 This repo is a template for `tower-lsp`, a crate that let you write a language server more easily.
+## Development
+1. `pnpm i`
+2. `cargo build`
+3. press `F5` or change to the Debug panel and click `Launch Client`
 ## Features
 This repo use a language `nano rust` which first introduced by [ chumsky ](https://github.com/zesterer/chumsky/blob/master/examples/nano_rust.rs). Most common language feature has been implemented, you could preview via the video below.
 
