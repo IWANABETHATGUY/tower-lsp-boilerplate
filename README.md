@@ -5,6 +5,36 @@ This repo is a template for `tower-lsp`, a crate that let you write a language s
 1. `pnpm i`
 2. `cargo build`
 3. press `F5` or change to the Debug panel and click `Launch Client`
+## A valid program in nano rust 
+```rust
+fn factorial(x) {
+    // Conditionals are supported!
+    if x == 0 {
+        1
+    } else {
+        x * factorial(x - 1)
+    }
+}
+
+// The main function
+fn main() {
+    let three = 3;
+    let meaning_of_life = three * 14 + 1;
+
+    print("Hello, world!");
+    print("The meaning of life is...");
+
+    if meaning_of_life == 42 {
+        print(meaning_of_life);
+    } else {
+        print("...something we cannot know");
+
+        print("However, I can tell you that the factorial of 10 is...");
+        // Function calling
+        print(factorial(10));
+    }
+}
+```
 ## Features
 This repo use a language `nano rust` which first introduced by [ chumsky ](https://github.com/zesterer/chumsky/blob/master/examples/nano_rust.rs). Most common language feature has been implemented, you could preview via the video below.
 
