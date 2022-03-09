@@ -1,5 +1,9 @@
-# Boilerplate for a rust language server 
+# Boilerplate for a  rust language server powered by `tower-lsp` 
+## introduction
+This repo is a template for `tower-lsp`, a crate that let you write a language server more easily.
 ## Features
+This repo use a language `nano rust` which first introduced by [ chumsky ](https://github.com/zesterer/chumsky/blob/master/examples/nano_rust.rs). Most common language feature has been implemented, you could preview via the video below.
+
 - [x] InlayHint for LiteralType
 ![inlay hint](https://user-images.githubusercontent.com/17974631/156926412-c3823dac-664e-430e-96c1-c003a86eabb2.gif)
 
