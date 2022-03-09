@@ -17,7 +17,13 @@ https://user-images.githubusercontent.com/17974631/156926355-010ef2cd-1d04-435b-
 
 https://user-images.githubusercontent.com/17974631/156926103-94d90bd3-f31c-44e7-a2ce-4ddfde89bc33.mp4
 
+- [x] find reference
 
+https://user-images.githubusercontent.com/17974631/157367235-7091a36c-631a-4347-9c1e-a3b78db81714.mp4
+
+- [x] rename
+
+https://user-images.githubusercontent.com/17974631/157367229-99903896-5583-4f67-a6da-1ae1cf206876.mp4
 
 
 
