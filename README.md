@@ -1,4 +1,4 @@
-# Boilerplate for a  rust language server powered by `tower-lsp` 
+# boilerplate for a  rust language server powered by `tower-lsp` 
 ## Introduction
 This repo is a template for `tower-lsp`, a crate that let you write a language server more easily.
 ## Development
