@@ -13,7 +13,6 @@
   },
   "enabledApiProposals": [],
   "activationEvents": [
-    "onFileSystem:file",
     "onLanguage:nrs"
   ],
   "main": "./client/out/extension.js",
