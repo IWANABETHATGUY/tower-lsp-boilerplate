@@ -77,6 +77,7 @@ impl LanguageServer for Backend {
                 // definition: Some(GotoCapability::default()),
                 definition_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
+                rename_provider: Some(OneOf::Left(true)),
                 ..ServerCapabilities::default()
             },
         })
@@ -195,8 +196,7 @@ impl LanguageServer for Backend {
             let position = params.text_document_position.position;
             let char = rope.try_line_to_char(position.line as usize).ok()?;
             let offset = char + position.character as usize;
-            let reference_list = get_reference(&ast, offset);
-            log::info!("{:?}", reference_list);
+            let reference_list = get_reference(&ast, offset, false);
             let ret = reference_list
                 .into_iter()
                 .filter_map(|(_, range)| {
@@ -316,6 +316,40 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "file closed!")
             .await;
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let workspace_edit = || -> Option<WorkspaceEdit> {
+            let uri = params.text_document_position.text_document.uri;
+            let ast = self.ast_map.get(&uri.to_string())?;
+            let rope = self.document_map.get(&uri.to_string())?;
+
+            let position = params.text_document_position.position;
+            let char = rope.try_line_to_char(position.line as usize).ok()?;
+            let offset = char + position.character as usize;
+            let reference_list = get_reference(&ast, offset, true);
+            let new_name = params.new_name;
+            if reference_list.len() > 0 {
+                let edit_list = reference_list
+                    .into_iter()
+                    .filter_map(|(_, range)| {
+                        let start_position = offset_to_position(range.start, &rope)?;
+                        let end_position = offset_to_position(range.end, &rope)?;
+                        Some(TextEdit::new(
+                            Range::new(start_position, end_position),
+                            new_name.clone(),
+                        ))
+                    })
+                    .collect::<Vec<_>>();
+                let mut map = HashMap::new();
+                map.insert(uri, edit_list);
+                let workspace_edit = WorkspaceEdit::new(map);
+                Some(workspace_edit)
+            } else {
+                None
+            }
+        }();
+        Ok(workspace_edit)
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
@@ -603,3 +637,10 @@ impl SemanticTokensBuilder {
 // pub(crate) fn type_index(ty: SemanticTokenType) -> u32 {
 //     SUPPORTED_TYPES.iter().position(|it| *it == ty).unwrap() as u32
 // }
+
+fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
+    let line = rope.try_char_to_line(offset).ok()?;
+    let first_char = rope.try_line_to_char(line).ok()?;
+    let column = offset - first_char;
+    Some(Position::new(line as u32, column as u32))
+}

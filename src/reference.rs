@@ -11,7 +11,11 @@ pub enum ReferenceSymbol {
     Founding(usize),
 }
 use ReferenceSymbol::*;
-pub fn get_reference(ast: &HashMap<String, Func>, ident_offset: usize) -> Vec<Spanned<String>> {
+pub fn get_reference(
+    ast: &HashMap<String, Func>,
+    ident_offset: usize,
+    include_self: bool,
+) -> Vec<Spanned<String>> {
     let mut vector = Vector::new();
     let mut reference_list = vec![];
     // for (_, v) in ast.iter() {
@@ -27,6 +31,9 @@ pub fn get_reference(ast: &HashMap<String, Func>, ident_offset: usize) -> Vec<Sp
         let (_, range) = &v.name;
         if ident_offset >= range.start && ident_offset < range.end {
             reference_symbol = ReferenceSymbol::Founded(v.name.clone());
+            if include_self {
+                reference_list.push(v.name.clone());
+            }
         };
         vector.push_back(v.name.clone());
         let args = v
@@ -35,16 +42,19 @@ pub fn get_reference(ast: &HashMap<String, Func>, ident_offset: usize) -> Vec<Sp
             .map(|arg| {
                 if ident_offset >= arg.1.start && ident_offset < arg.1.end {
                     reference_symbol = ReferenceSymbol::Founded(arg.clone());
+                    if include_self {
+                        reference_list.push(arg.clone());
+                    }
                 }
                 arg.clone()
             })
             .collect::<Vector<_>>();
-        info!("{:?}", args.clone() + vector.clone());
         get_reference_of_expr(
             &v.body,
             args + vector.clone(),
             reference_symbol.clone(),
             &mut reference_list,
+            include_self
         );
     }
     reference_list
@@ -55,6 +65,7 @@ pub fn get_reference_of_expr(
     definition_ass_list: Vector<Spanned<String>>,
     reference_symbol: ReferenceSymbol,
     reference_list: &mut Vec<Spanned<String>>,
+    include_self: bool,
 ) {
     match &expr.0 {
         Expr::Error => {}
@@ -62,7 +73,6 @@ pub fn get_reference_of_expr(
         Expr::Local((name, span)) => {
             if let Founded((symbol_name, symbol_span)) = reference_symbol {
                 if &symbol_name == name {
-                    info!("found local equal to reference_value {:?}", (name, span));
                     let index = definition_ass_list
                         .iter()
                         .position(|decl| decl.0 == symbol_name);
@@ -90,7 +100,11 @@ pub fn get_reference_of_expr(
             let new_decl = Vector::unit((name.clone(), name_span.clone()));
             let next_symbol = match reference_symbol {
                 Founding(ident) if ident >= name_span.start && ident < name_span.end => {
-                    ReferenceSymbol::Founded((name.clone(), name_span.clone()))
+                    let spanned_name = (name.clone(), name_span.clone());
+                    if include_self {
+                        reference_list.push(spanned_name.clone());
+                    }
+                    ReferenceSymbol::Founded(spanned_name)
                 }
                 _ => reference_symbol,
             };
@@ -100,12 +114,14 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 next_symbol.clone(),
                 reference_list,
+                include_self,
             );
             get_reference_of_expr(
                 rest,
                 new_decl + definition_ass_list.clone(),
                 next_symbol,
                 reference_list,
+                include_self,
             );
         }
         Expr::Then(first, second) => {
@@ -114,12 +130,14 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
+                include_self
             );
             get_reference_of_expr(
                 second,
                 definition_ass_list.clone(),
                 reference_symbol,
                 reference_list,
+                include_self
             );
         }
         Expr::Binary(lhs, op, rhs) => {
@@ -128,12 +146,14 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
+                include_self
             );
             get_reference_of_expr(
                 rhs,
                 definition_ass_list.clone(),
                 reference_symbol,
                 reference_list,
+                include_self
             );
         }
         Expr::Call(callee, args) => {
@@ -142,6 +162,7 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
+                include_self
             );
             for expr in &args.0 {
                 get_reference_of_expr(
@@ -149,6 +170,7 @@ pub fn get_reference_of_expr(
                     definition_ass_list.clone(),
                     reference_symbol.clone(),
                     reference_list,
+                    include_self
                 );
             }
         }
@@ -158,22 +180,25 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
+                include_self
             );
             get_reference_of_expr(
                 consequent,
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
+                include_self
             );
             get_reference_of_expr(
                 alternative,
                 definition_ass_list,
                 reference_symbol.clone(),
                 reference_list,
+                include_self
             );
         }
         Expr::Print(expr) => {
-            get_reference_of_expr(expr, definition_ass_list, reference_symbol, reference_list)
+            get_reference_of_expr(expr, definition_ass_list, reference_symbol, reference_list, include_self)
         }
         Expr::List(lst) => {
             for expr in lst {
@@ -182,6 +207,7 @@ pub fn get_reference_of_expr(
                     definition_ass_list.clone(),
                     reference_symbol.clone(),
                     reference_list,
+                    include_self
                 );
             }
         }
