@@ -200,16 +200,8 @@ impl LanguageServer for Backend {
             let ret = reference_list
                 .into_iter()
                 .filter_map(|(_, range)| {
-                    let start_line = rope.try_char_to_line(range.start).ok()?;
-                    let start_line_first = rope.try_line_to_char(start_line).ok()?;
-                    let start_column = range.start - start_line_first;
-
-                    let end_line = rope.try_char_to_line(range.end).ok()?;
-                    let end_line_first = rope.try_line_to_char(end_line).ok()?;
-                    let end_column = range.end - end_line_first;
-
-                    let start_position = Position::new(start_line as u32, start_column as u32);
-                    let end_position = Position::new(end_line as u32, end_column as u32);
+                    let start_position = offset_to_position(range.start, &rope)?;
+                    let end_position = offset_to_position(range.end, &rope)?;
 
                     let range = Range::new(start_position, end_position);
 
@@ -235,16 +227,8 @@ impl LanguageServer for Backend {
             let offset = char + position.character as usize;
             let span = get_definition(&ast, offset);
             span.and_then(|(_, range)| {
-                let start_line = rope.try_char_to_line(range.start).ok()?;
-                let start_line_first = rope.try_line_to_char(start_line).ok()?;
-                let start_column = range.start - start_line_first;
-
-                let end_line = rope.try_char_to_line(range.end).ok()?;
-                let end_line_first = rope.try_line_to_char(end_line).ok()?;
-                let end_column = range.end - end_line_first;
-
-                let start_position = Position::new(start_line as u32, start_column as u32);
-                let end_position = Position::new(end_line as u32, end_column as u32);
+                let start_position = offset_to_position(range.start, &rope)?;
+                let end_position = offset_to_position(range.end, &rope)?;
 
                 let range = Range::new(start_position, end_position);
 
@@ -500,23 +484,21 @@ impl Backend {
                     chumsky::error::SimpleReason::Custom(msg) => (msg.to_string(), item.span()),
                 };
 
-                let diagnostic = || -> ropey::Result<Diagnostic> {
-                    let start_line = rope.try_char_to_line(span.start)?;
-                    let first_char = rope.try_line_to_char(start_line)?;
-                    let start_column = span.start - first_char;
-
-                    let end_line = rope.try_char_to_line(span.end)?;
-                    let first_char = rope.try_line_to_char(end_line)?;
-                    let end_column = span.end - first_char;
-                    Ok(Diagnostic::new_simple(
-                        Range::new(
-                            Position::new(start_line as u32, start_column as u32),
-                            Position::new(end_line as u32, end_column as u32),
-                        ),
+                let diagnostic = || -> Option<Diagnostic> {
+                    // let start_line = rope.try_char_to_line(span.start)?;
+                    // let first_char = rope.try_line_to_char(start_line)?;
+                    // let start_column = span.start - first_char;
+                    let start_position = offset_to_position(span.start, &rope)?;
+                    let end_position = offset_to_position(span.end, &rope)?;
+                    // let end_line = rope.try_char_to_line(span.end)?;
+                    // let first_char = rope.try_line_to_char(end_line)?;
+                    // let end_column = span.end - first_char;
+                    Some(Diagnostic::new_simple(
+                        Range::new(start_position, end_position),
                         message,
                     ))
                 }();
-                diagnostic.ok()
+                diagnostic
             })
             .collect::<Vec<_>>();
 
