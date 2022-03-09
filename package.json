@@ -52,7 +52,7 @@
     "compile": "cross-env NODE_ENV=production tsc -b",
     "watch": "tsc -b -w",
     "lint": "eslint src --ext ts",
-    "pretest": "yarn run compile && yarn run lint",
+    "pretest": "npm run compile && npm run lint",
     "test": "node ./out/test/runTest.js",
     "build": "webpack --config webpack.config.js"
   },
