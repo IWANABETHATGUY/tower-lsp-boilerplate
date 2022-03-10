@@ -54,7 +54,7 @@ pub fn get_reference(
             args + vector.clone(),
             reference_symbol.clone(),
             &mut reference_list,
-            include_self
+            include_self,
         );
     }
     reference_list
@@ -130,14 +130,14 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
-                include_self
+                include_self,
             );
             get_reference_of_expr(
                 second,
                 definition_ass_list.clone(),
                 reference_symbol,
                 reference_list,
-                include_self
+                include_self,
             );
         }
         Expr::Binary(lhs, op, rhs) => {
@@ -146,14 +146,14 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
-                include_self
+                include_self,
             );
             get_reference_of_expr(
                 rhs,
                 definition_ass_list.clone(),
                 reference_symbol,
                 reference_list,
-                include_self
+                include_self,
             );
         }
         Expr::Call(callee, args) => {
@@ -162,7 +162,7 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
-                include_self
+                include_self,
             );
             for expr in &args.0 {
                 get_reference_of_expr(
@@ -170,7 +170,7 @@ pub fn get_reference_of_expr(
                     definition_ass_list.clone(),
                     reference_symbol.clone(),
                     reference_list,
-                    include_self
+                    include_self,
                 );
             }
         }
@@ -180,26 +180,30 @@ pub fn get_reference_of_expr(
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
-                include_self
+                include_self,
             );
             get_reference_of_expr(
                 consequent,
                 definition_ass_list.clone(),
                 reference_symbol.clone(),
                 reference_list,
-                include_self
+                include_self,
             );
             get_reference_of_expr(
                 alternative,
                 definition_ass_list,
                 reference_symbol.clone(),
                 reference_list,
-                include_self
+                include_self,
             );
         }
-        Expr::Print(expr) => {
-            get_reference_of_expr(expr, definition_ass_list, reference_symbol, reference_list, include_self)
-        }
+        Expr::Print(expr) => get_reference_of_expr(
+            expr,
+            definition_ass_list,
+            reference_symbol,
+            reference_list,
+            include_self,
+        ),
         Expr::List(lst) => {
             for expr in lst {
                 get_reference_of_expr(
@@ -207,7 +211,7 @@ pub fn get_reference_of_expr(
                     definition_ass_list.clone(),
                     reference_symbol.clone(),
                     reference_list,
-                    include_self
+                    include_self,
                 );
             }
         }

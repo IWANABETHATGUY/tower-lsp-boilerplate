@@ -1,12 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use dashmap::DashMap;
-use diagnostic_ls::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken, Spanned};
-use diagnostic_ls::completion::completion;
-use diagnostic_ls::jump_definition::{get_definition, get_definition_of_expr};
-use diagnostic_ls::reference::get_reference;
-use diagnostic_ls::semantic_token::{self, semantic_token_from_ast, LEGEND_TYPE};
-use log::{debug, info};
+use nrs_language_server::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken, Spanned};
+use nrs_language_server::completion::completion;
+use nrs_language_server::jump_definition::{get_definition, get_definition_of_expr};
+use nrs_language_server::reference::get_reference;
+use nrs_language_server::semantic_token::{self, semantic_token_from_ast, LEGEND_TYPE};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -348,7 +347,7 @@ impl LanguageServer for Backend {
             let mut ret = Vec::with_capacity(completions.len());
             for (_, item) in completions {
                 match item {
-                    diagnostic_ls::completion::ImCompleteCompletionItem::Variable(var) => {
+                    nrs_language_server::completion::ImCompleteCompletionItem::Variable(var) => {
                         ret.push(CompletionItem {
                             label: var.clone(),
                             insert_text: Some(var.clone()),
@@ -357,7 +356,10 @@ impl LanguageServer for Backend {
                             ..Default::default()
                         });
                     }
-                    diagnostic_ls::completion::ImCompleteCompletionItem::Function(name, args) => {
+                    nrs_language_server::completion::ImCompleteCompletionItem::Function(
+                        name,
+                        args,
+                    ) => {
                         ret.push(CompletionItem {
                             label: name.clone(),
                             kind: Some(CompletionItemKind::FUNCTION),
@@ -398,21 +400,14 @@ struct TextDocumentItem {
     version: i32,
 }
 impl Backend {
-    async fn test(&self, params: serde_json::Value) -> Result<Vec<(usize, usize, String)>> {
+    async fn inlay_hint(&self, params: InlayHintParams) -> Result<Vec<(usize, usize, String)>> {
         let mut hashmap = HashMap::new();
-        if let Ok(InlayHintParams { path }) = serde_json::from_value::<InlayHintParams>(params) {
-            if let Some(ast) = self.ast_map.get(&path) {
-                ast.iter().for_each(|(k, v)| {
-                    type_inference(&v.body, &mut hashmap);
-                });
-            }
+        if let Some(ast) = self.ast_map.get(&params.path) {
+            ast.iter().for_each(|(_, v)| {
+                type_inference(&v.body, &mut hashmap);
+            });
         }
 
-        // if let Some(ast) = self.ast_map.get()
-        // self.client
-        //     .log_message(MessageType::INFO, &format!("{:?}", hashmap))
-        //     .await;
-        // if let Some(params )  {
         let inlay_hint_list = hashmap
             .into_iter()
             .map(|(k, v)| {
@@ -420,29 +415,17 @@ impl Backend {
                     k.start,
                     k.end,
                     match v {
-                        diagnostic_ls::chumsky::Value::Null => "null".to_string(),
-                        diagnostic_ls::chumsky::Value::Bool(_) => "bool".to_string(),
-                        diagnostic_ls::chumsky::Value::Num(_) => "number".to_string(),
-                        diagnostic_ls::chumsky::Value::Str(_) => "string".to_string(),
-                        diagnostic_ls::chumsky::Value::List(_) => "[]".to_string(),
-                        diagnostic_ls::chumsky::Value::Func(_) => v.to_string(),
+                        nrs_language_server::chumsky::Value::Null => "null".to_string(),
+                        nrs_language_server::chumsky::Value::Bool(_) => "bool".to_string(),
+                        nrs_language_server::chumsky::Value::Num(_) => "number".to_string(),
+                        nrs_language_server::chumsky::Value::Str(_) => "string".to_string(),
+                        nrs_language_server::chumsky::Value::List(_) => "[]".to_string(),
+                        nrs_language_server::chumsky::Value::Func(_) => v.to_string(),
                     },
                 )
             })
             .collect::<Vec<_>>();
         Ok(inlay_hint_list)
-        // self.client
-        //     .log_message(MessageType::INFO, format!("{:?}", hashmap))
-        //     .await;
-        // match serde_json::to_string(&inlay_hint_list) {
-        //     Ok(value) => Ok(value),
-        //     Err(err) => {
-        //         self.client
-        //             .log_message(MessageType::INFO, format!("{:?}", err))
-        //             .await;
-        //         Err(tower_lsp::jsonrpc::Error::parse_error())
-        //     }
-        // }
     }
     async fn on_change(&self, params: TextDocumentItem) {
         let rope = ropey::Rope::from_str(&params.text);
@@ -530,95 +513,10 @@ async fn main() {
         document_map: DashMap::new(),
         semantic_token_map: DashMap::new(),
     })
-    .method("custom/request", Backend::test)
+    .method("custom/inlay_hint", Backend::inlay_hint)
     .finish();
     Server::new(stdin, stdout, socket).serve(service).await;
 }
-
-/// This is a direct port of <https://github.com/microsoft/vscode-languageserver-node/blob/f425af9de46a0187adb78ec8a46b9b2ce80c5412/server/src/sematicTokens.proposed.ts#L45>
-pub(crate) struct SemanticTokensBuilder {
-    id: String,
-    prev_line: u32,
-    prev_char: u32,
-    data: Vec<SemanticToken>,
-}
-
-impl SemanticTokensBuilder {
-    pub(crate) fn new(id: String) -> Self {
-        SemanticTokensBuilder {
-            id,
-            prev_line: 0,
-            prev_char: 0,
-            data: Default::default(),
-        }
-    }
-
-    /// Push a new token onto the builder
-    pub(crate) fn push(&mut self, range: Range, token_index: u32, modifier_bitset: u32) {
-        let mut push_line = range.start.line as u32;
-        let mut push_char = range.start.character as u32;
-
-        if !self.data.is_empty() {
-            push_line -= self.prev_line;
-            if push_line == 0 {
-                push_char -= self.prev_char;
-            }
-        }
-
-        // A token cannot be multiline
-        let token_len = range.end.character - range.start.character;
-
-        let token = SemanticToken {
-            delta_line: push_line,
-            delta_start: push_char,
-            length: token_len as u32,
-            token_type: token_index,
-            token_modifiers_bitset: modifier_bitset,
-        };
-
-        self.data.push(token);
-
-        self.prev_line = range.start.line as u32;
-        self.prev_char = range.start.character as u32;
-    }
-
-    pub(crate) fn build(self) -> SemanticTokens {
-        SemanticTokens {
-            result_id: Some(self.id),
-            data: self.data,
-        }
-    }
-}
-
-// pub(crate) fn diff_tokens(old: &[SemanticToken], new: &[SemanticToken]) -> Vec<SemanticTokensEdit> {
-//     let offset = new.iter().zip(old.iter()).take_while(|&(n, p)| n == p).count();
-
-//     let (_, old) = old.split_at(offset);
-//     let (_, new) = new.split_at(offset);
-
-//     let offset_from_end =
-//         new.iter().rev().zip(old.iter().rev()).take_while(|&(n, p)| n == p).count();
-
-//     let (old, _) = old.split_at(old.len() - offset_from_end);
-//     let (new, _) = new.split_at(new.len() - offset_from_end);
-
-//     if old.is_empty() && new.is_empty() {
-//         vec![]
-//     } else {
-//         // The lsp data field is actually a byte-diff but we
-//         // travel in tokens so `start` and `delete_count` are in multiples of the
-//         // serialized size of `SemanticToken`.
-//         vec![SemanticTokensEdit {
-//             start: 5 * offset as u32,
-//             delete_count: 5 * old.len() as u32,
-//             data: Some(new.into()),
-//         }]
-//     }
-// }
-
-// pub(crate) fn type_index(ty: SemanticTokenType) -> u32 {
-//     SUPPORTED_TYPES.iter().position(|it| *it == ty).unwrap() as u32
-// }
 
 fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
     let line = rope.try_char_to_line(offset).ok()?;

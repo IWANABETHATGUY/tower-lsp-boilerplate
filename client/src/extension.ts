@@ -109,7 +109,7 @@ export function activateInlayHints(ctx: ExtensionContext) {
             token: CancellationToken
           ): Promise<InlayHint[]> {
             const hints = (await client
-              .sendRequest("custom/request", { path: document.uri.toString() })
+              .sendRequest("custom/inlay_hint", { path: document.uri.toString() })
               .catch(err => null)) as [number, number, string][];
             if (hints == null) {
               return [];

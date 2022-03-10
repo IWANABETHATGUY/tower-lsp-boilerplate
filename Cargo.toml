@@ -1,5 +1,5 @@
 [package]
-name = "diagnostic-ls"
+name = "nrs-language-server"
 version = "0.1.0"
 edition = "2021"
 

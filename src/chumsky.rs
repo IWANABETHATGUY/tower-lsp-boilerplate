@@ -220,7 +220,7 @@ pub struct Func {
     pub args: Vec<Spanned<String>>,
     pub body: Spanned<Expr>,
     pub name: Spanned<String>,
-    pub span: Span
+    pub span: Span,
 }
 
 fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone {
