@@ -513,7 +513,7 @@ async fn main() {
         document_map: DashMap::new(),
         semantic_token_map: DashMap::new(),
     })
-    .method("custom/inlay_hint", Backend::inlay_hint)
+    .custom_method("custom/inlay_hint", Backend::inlay_hint)
     .finish();
     Server::new(stdin, stdout, socket).serve(service).await;
 }

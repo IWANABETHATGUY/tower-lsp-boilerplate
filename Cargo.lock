@@ -776,7 +776,7 @@ checksum = "343bc9466d3fe6b0f960ef45960509f84480bf4fd96f92901afe7ff3df9d3a62"
 [[package]]
 name = "tower-lsp"
 version = "0.15.1"
-source = "git+https://github.com/ebkalderon/tower-lsp?branch=support-custom-server-requests#357e062145ef6a7ce229be79dc3e4172e531d8a2"
+source = "git+https://github.com/ebkalderon/tower-lsp#98a6b1f23ee0b86744c0e39646567cfd908cea43"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -798,7 +798,7 @@ dependencies = [
 [[package]]
 name = "tower-lsp-macros"
 version = "0.5.0"
-source = "git+https://github.com/ebkalderon/tower-lsp?branch=support-custom-server-requests#357e062145ef6a7ce229be79dc3e4172e531d8a2"
+source = "git+https://github.com/ebkalderon/tower-lsp#98a6b1f23ee0b86744c0e39646567cfd908cea43"
 dependencies = [
  "proc-macro2",
  "quote",
