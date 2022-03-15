@@ -1,6 +1,6 @@
 # boilerplate for a  rust language server powered by `tower-lsp` 
 ## Introduction
-This repo is a template for `tower-lsp`, a crate that let you write a language server more easily.
+This repo is a template for `tower-lsp`, a useful github project template which makes writing new language servers easier.
 ## Development
 1. `pnpm i`
 2. `cargo build`
