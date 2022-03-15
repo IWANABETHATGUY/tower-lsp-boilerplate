@@ -4,7 +4,7 @@ This repo is a template for `tower-lsp`, a useful github project template which 
 ## Development
 1. `pnpm i`
 2. `cargo build`
-3. press `F5` or change to the Debug panel and click `Launch Client`
+3. press <kbd>F5</kbd> or change to the Debug panel and click <kbd>Launch Client</kbd>
 ## A valid program in nano rust 
 ```rust
 fn factorial(x) {
