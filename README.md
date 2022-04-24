@@ -43,7 +43,7 @@ This repo use a language `nano rust` which first introduced by [ chumsky ](https
 
 - [x] semantic token   
 make sure your semantic token is enabled, you could enable your `semantic token` by
-add this line  to your `settings.json`
+adding this line  to your `settings.json`
 ```json
 {
  "editor.semanticHighlighting.enabled": true,
