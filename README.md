@@ -41,8 +41,14 @@ This repo use a language `nano rust` which first introduced by [ chumsky ](https
 - [x] InlayHint for LiteralType
 ![inlay hint](https://user-images.githubusercontent.com/17974631/156926412-c3823dac-664e-430e-96c1-c003a86eabb2.gif)
 
-- [x] semantic token
-
+- [x] semantic token   
+make sure your semantic token is enabled, you could enable your `semantic token` by
+add this line  to your `settings.json`
+```json
+{
+ "editor.semanticHighlighting.enabled": true,
+}
+```
 - [x] syntactic error diagnostic
 
 https://user-images.githubusercontent.com/17974631/156926382-a1c4c911-7ea1-4d3a-8e08-3cf7271da170.mp4
