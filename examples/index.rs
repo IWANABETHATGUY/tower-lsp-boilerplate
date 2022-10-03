@@ -9,12 +9,13 @@ fn main() {
     // test
     // println!("{:?}", &source[10..11]);
     let (ast, errors, semantic_tokens) = parse(source);
-    if let Some(ref ast) = ast {
-        println!("{:#?}", ast);
-    } else {
-        println!("{:?}", errors);
-    }
-    println!("{:?}", semantic_tokens);
+    println!("{:?}", errors);
+    // if let Some(ref ast) = ast {
+    //     println!("{:#?}", ast);
+    // } else {
+    //     println!("{:?}", errors);
+    // }
+    // println!("{:?}", semantic_tokens);
     let mut hashmap = HashMap::new();
     if let Some(ast) = ast {
         ast.into_iter().for_each(|(k, v)| {

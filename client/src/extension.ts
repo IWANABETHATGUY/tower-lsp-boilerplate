@@ -3,27 +3,18 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import * as path from "path";
 import {
   languages,
   workspace,
   EventEmitter,
   ExtensionContext,
   window,
-  commands,
-  ViewColumn,
-  WebviewPanel,
-  WorkspaceEdit,
-  Selection,
-  Uri,
   InlayHintsProvider,
   TextDocument,
   CancellationToken,
   Range,
   InlayHint,
   TextDocumentChangeEvent,
-  Position,
-  InlayHintLabelPart,
   Location,
   ProviderResult,
 } from "vscode";
@@ -34,7 +25,6 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
-  TransportKind,
 } from "vscode-languageclient/node";
 
 let client: LanguageClient;

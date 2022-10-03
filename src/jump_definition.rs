@@ -69,7 +69,7 @@ pub fn get_definition_of_expr(
                 (true, Some(value)) | (false, Some(value)) => (false, Some(value)),
             }
         }
-        Expr::Binary(lhs, op, rhs) => {
+        Expr::Binary(lhs, _, rhs) => {
             match get_definition_of_expr(lhs, definition_ass_list.clone(), ident_offset) {
                 (true, None) => {
                     get_definition_of_expr(rhs, definition_ass_list.clone(), ident_offset)
