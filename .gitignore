@@ -4,3 +4,5 @@ out/
 .pnpm-debug.log
 *.ast 
 *.nrs
+dist/
+*.vsix
