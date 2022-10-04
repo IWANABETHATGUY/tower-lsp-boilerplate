@@ -15,8 +15,12 @@ import {
   Range,
   InlayHint,
   TextDocumentChangeEvent,
-  Location,
   ProviderResult,
+  commands,
+  WorkspaceEdit,
+  TextEdit,
+  Selection,
+  Uri,
 } from "vscode";
 
 import {
@@ -31,6 +35,21 @@ let client: LanguageClient;
 // type a = Parameters<>;
 
 export async function activate(context: ExtensionContext) {
+  let disposable = commands.registerCommand("helloworld.helloWorld", async uri => {
+    // The code you place here will be executed every time your command is executed
+    // Display a message box to the user
+    const url = Uri.parse('/home/victor/Documents/test-dir/nrs/another.nrs')
+    let document = await workspace.openTextDocument(uri);
+    await window.showTextDocument(document);
+    
+    // console.log(uri)
+    window.activeTextEditor.document
+    let editor = window.activeTextEditor;
+    let range = new Range(1, 1, 1, 1)
+    editor.selection = new Selection(range.start, range.end);
+  });
+
+  context.subscriptions.push(disposable);
 
   const traceOutputChannel = window.createOutputChannel("Nrs Language Server trace");
   const command = process.env.SERVER_PATH || "nrs-language-server";
@@ -64,7 +83,7 @@ export async function activate(context: ExtensionContext) {
   // Create the language client and start the client.
   client = new LanguageClient("nrs-language-server", "nrs language server", serverOptions, clientOptions);
   activateInlayHints(context);
-   client.start();
+  client.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {
@@ -88,10 +107,11 @@ export function activateInlayHints(ctx: ExtensionContext) {
         new (class implements InlayHintsProvider {
           onDidChangeInlayHints = event;
           resolveInlayHint(hint: InlayHint, token: CancellationToken): ProviderResult<InlayHint> {
-            return {
+            const ret = {
               label: hint.label,
-              ...hint
+              ...hint,
             };
+            return ret;
           }
           async provideInlayHints(
             document: TextDocument,
@@ -113,8 +133,16 @@ export function activateInlayHints(ctx: ExtensionContext) {
                   paddingLeft: true,
                   label: [
                     {
-                      value: label,
-                      location: new Location(document.uri, startPosition),
+                      value: `${label}`,
+                      // location: {
+                      //   uri: document.uri,
+                      //   range: new Range(1, 0, 1, 0)
+                      // }
+                      command: {
+                        title: "hello world",
+                        command: "helloworld.helloWorld",
+                        arguments: [document.uri],
+                      },
                     },
                   ],
                 };
