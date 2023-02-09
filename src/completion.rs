@@ -57,7 +57,7 @@ pub fn get_completion_of(
                 true
             }
         }
-        Expr::Let(name, lhs, rest, name_span) => {
+        Expr::Let(name, lhs, rest, _name_span) => {
             definition_map.insert(
                 name.clone(),
                 ImCompleteCompletionItem::Variable(name.clone()),
@@ -71,7 +71,7 @@ pub fn get_completion_of(
             true => get_completion_of(second, definition_map, ident_offset),
             false => false,
         },
-        Expr::Binary(lhs, op, rhs) => match get_completion_of(lhs, definition_map, ident_offset) {
+        Expr::Binary(lhs, _op, rhs) => match get_completion_of(lhs, definition_map, ident_offset) {
             true => get_completion_of(rhs, definition_map, ident_offset),
             false => false,
         },

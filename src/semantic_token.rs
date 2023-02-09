@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use tower_lsp::lsp_types::{SemanticToken, SemanticTokenType};
+use tower_lsp::lsp_types::{SemanticTokenType};
 
 use crate::chumsky::{Expr, Func, ImCompleteSemanticToken, Spanned};
 
@@ -18,7 +18,7 @@ pub const LEGEND_TYPE: &[SemanticTokenType] = &[
 pub fn semantic_token_from_ast(ast: &HashMap<String, Func>) -> Vec<ImCompleteSemanticToken> {
     let mut semantic_tokens = vec![];
 
-    ast.iter().for_each(|(func_name, function)| {
+    ast.iter().for_each(|(_func_name, function)| {
         function.args.iter().for_each(|(_, span)| {
             semantic_tokens.push(ImCompleteSemanticToken {
                 start: span.start,
@@ -52,7 +52,7 @@ pub fn semantic_token_from_expr(
         Expr::Error => {}
         Expr::Value(_) => {}
         Expr::List(_) => {}
-        Expr::Local((name, span)) => {
+        Expr::Local((_name, span)) => {
             semantic_tokens.push(ImCompleteSemanticToken {
                 start: span.start,
                 length: span.len(),
@@ -78,7 +78,7 @@ pub fn semantic_token_from_expr(
             semantic_token_from_expr(first, semantic_tokens);
             semantic_token_from_expr(rest, semantic_tokens);
         }
-        Expr::Binary(lhs, op, rhs) => {
+        Expr::Binary(lhs, _op, rhs) => {
             semantic_token_from_expr(lhs, semantic_tokens);
             semantic_token_from_expr(rhs, semantic_tokens);
         }

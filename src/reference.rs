@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use chumsky::Span;
 use im_rc::Vector;
-use log::info;
+
 
 use crate::chumsky::{Expr, Func, Spanned};
 #[derive(Debug, Clone)]
@@ -140,7 +140,7 @@ pub fn get_reference_of_expr(
                 include_self,
             );
         }
-        Expr::Binary(lhs, op, rhs) => {
+        Expr::Binary(lhs, _op, rhs) => {
             get_reference_of_expr(
                 lhs,
                 definition_ass_list.clone(),

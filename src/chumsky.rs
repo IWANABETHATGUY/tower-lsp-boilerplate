@@ -2,10 +2,10 @@ use chumsky::Parser;
 use chumsky::{prelude::*, stream::Stream};
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, env, fs};
-use tower_lsp::lsp_types::{SemanticToken, SemanticTokenType};
+use std::{collections::HashMap};
+use tower_lsp::lsp_types::{SemanticTokenType};
 
-use crate::semantic_token::{self, LEGEND_TYPE};
+use crate::semantic_token::{LEGEND_TYPE};
 
 /// This is the parser and interpreter for the 'Foo' language. See `tutorial.md` in the repository's root to learn
 /// about it.
@@ -504,7 +504,7 @@ pub fn type_inference(expr: &Spanned<Expr>, symbol_type_table: &mut HashMap<Span
             .iter()
             .for_each(|expr| type_inference(expr, symbol_type_table)),
         Expr::Local(_) => {}
-        Expr::Let(name, lhs, rest, name_span) => {
+        Expr::Let(_name, lhs, rest, name_span) => {
             if let Some(value) = lhs.0.as_value() {
                 symbol_type_table.insert(name_span.clone(), value.clone());
             }
@@ -516,7 +516,7 @@ pub fn type_inference(expr: &Spanned<Expr>, symbol_type_table: &mut HashMap<Span
         }
         Expr::Binary(_, _, _) => {}
         Expr::Call(_, _) => {}
-        Expr::If(test, consequent, alternative) => {
+        Expr::If(_test, consequent, alternative) => {
             type_inference(consequent, symbol_type_table);
             type_inference(alternative, symbol_type_table);
         }

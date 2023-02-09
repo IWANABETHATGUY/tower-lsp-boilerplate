@@ -1,15 +1,15 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 use dashmap::DashMap;
-use nrs_language_server::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken, Spanned};
+use nrs_language_server::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken};
 use nrs_language_server::completion::completion;
-use nrs_language_server::jump_definition::{get_definition, get_definition_of_expr};
+use nrs_language_server::jump_definition::{get_definition};
 use nrs_language_server::reference::get_reference;
-use nrs_language_server::semantic_token::{self, semantic_token_from_ast, LEGEND_TYPE};
+use nrs_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tower_lsp::jsonrpc::{ErrorCode, Result};
+use tower_lsp::jsonrpc::{Result};
 use tower_lsp::lsp_types::notification::Notification;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
