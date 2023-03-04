@@ -1,12 +1,20 @@
 use std::collections::HashMap;
 
 use im_rc::Vector;
+use log::debug;
+use tower_lsp::{lsp_types::MessageType, Client};
 
 use crate::chumsky::{Expr, Func, Spanned};
 /// return (need_to_continue_search, founded reference)
-pub fn get_definition(ast: &HashMap<String, Func>, ident_offset: usize) -> Option<Spanned<String>> {
+pub fn get_definition(
+    ast: &HashMap<String, Func>,
+    ident_offset: usize,
+) -> Option<Spanned<String>> {
     let mut vector = Vector::new();
     for (_, v) in ast.iter() {
+        if v.name.1.start < ident_offset && v.name.1.end > ident_offset {
+            return Some(v.name.clone());
+        }
         if v.name.1.end < ident_offset {
             vector.push_back(v.name.clone());
         }

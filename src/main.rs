@@ -1,16 +1,15 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
-use chumsky::primitive::todo;
 use dashmap::DashMap;
 use nrs_language_server::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken};
 use nrs_language_server::completion::completion;
-use nrs_language_server::jump_definition::{get_definition};
+use nrs_language_server::jump_definition::get_definition;
 use nrs_language_server::reference::get_reference;
-use nrs_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
+use nrs_language_server::semantic_token::semantic_token_from_ast;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tower_lsp::jsonrpc::{Result};
+use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::notification::Notification;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -29,6 +28,7 @@ impl LanguageServer for Backend {
             server_info: None,
             offset_encoding: None,
             capabilities: ServerCapabilities {
+                inlay_hint_provider: Some(OneOf::Left(true)),
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
@@ -37,7 +37,7 @@ impl LanguageServer for Backend {
                     trigger_characters: Some(vec![".".to_string()]),
                     work_done_progress_options: Default::default(),
                     all_commit_characters: None,
-                    completion_item: None
+                    completion_item: None,
                 }),
                 execute_command_provider: Some(ExecuteCommandOptions {
                     commands: vec!["dummy.do_something".to_string()],
@@ -51,31 +51,32 @@ impl LanguageServer for Backend {
                     }),
                     file_operations: None,
                 }),
-                semantic_tokens_provider: Some(
-                    SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
-                        SemanticTokensRegistrationOptions {
-                            text_document_registration_options: {
-                                TextDocumentRegistrationOptions {
-                                    document_selector: Some(vec![DocumentFilter {
-                                        language: Some("nrs".to_string()),
-                                        scheme: Some("file".to_string()),
-                                        pattern: None,
-                                    }]),
-                                }
-                            },
-                            semantic_tokens_options: SemanticTokensOptions {
-                                work_done_progress_options: WorkDoneProgressOptions::default(),
-                                legend: SemanticTokensLegend {
-                                    token_types: LEGEND_TYPE.clone().into(),
-                                    token_modifiers: vec![],
-                                },
-                                range: Some(true),
-                                full: Some(SemanticTokensFullOptions::Bool(true)),
-                            },
-                            static_registration_options: StaticRegistrationOptions::default(),
-                        },
-                    ),
-                ),
+                // Some(
+                //     SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
+                //         SemanticTokensRegistrationOptions {
+                //             text_document_registration_options: {
+                //                 TextDocumentRegistrationOptions {
+                //                     document_selector: Some(vec![DocumentFilter {
+                //                         language: Some("nrs".to_string()),
+                //                         scheme: Some("file".to_string()),
+                //                         pattern: None,
+                //                     }]),
+                //                 }
+                //             },
+                //             semantic_tokens_options: SemanticTokensOptions {
+                //                 work_done_progress_options: WorkDoneProgressOptions::default(),
+                //                 legend: SemanticTokensLegend {
+                //                     token_types: LEGEND_TYPE.clone().into(),
+                //                     token_modifiers: vec![],
+                //                 },
+                //                 range: Some(true),
+                //                 full: Some(SemanticTokensFullOptions::Bool(true)),
+                //             },
+                //             static_registration_options: StaticRegistrationOptions::default(),
+                //         },
+                //     ),
+                // )
+                semantic_tokens_provider: None,
                 // definition: Some(GotoCapability::default()),
                 definition_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
@@ -84,6 +85,103 @@ impl LanguageServer for Backend {
             },
         })
     }
+    async fn initialized(&self, _: InitializedParams) {
+        self.client
+            .log_message(MessageType::INFO, "initialized!")
+            .await;
+    }
+
+    async fn shutdown(&self) -> Result<()> {
+        Ok(())
+    }
+
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        self.client
+            .log_message(MessageType::INFO, "file opened!")
+            .await;
+        self.on_change(TextDocumentItem {
+            uri: params.text_document.uri,
+            text: params.text_document.text,
+            version: params.text_document.version,
+        })
+        .await
+    }
+
+    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
+        self.on_change(TextDocumentItem {
+            uri: params.text_document.uri,
+            text: std::mem::take(&mut params.content_changes[0].text),
+            version: params.text_document.version,
+        })
+        .await
+    }
+
+    async fn did_save(&self, _: DidSaveTextDocumentParams) {
+        self.client
+            .log_message(MessageType::INFO, "file saved!")
+            .await;
+    }
+    async fn did_close(&self, _: DidCloseTextDocumentParams) {
+        self.client
+            .log_message(MessageType::INFO, "file closed!")
+            .await;
+    }
+
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let definition = async {
+            let uri = params.text_document_position_params.text_document.uri;
+            let ast = self.ast_map.get(uri.as_str())?;
+            let rope = self.document_map.get(uri.as_str())?;
+
+            let position = params.text_document_position_params.position;
+            let char = rope.try_line_to_char(position.line as usize).ok()?;
+            let offset = char + position.character as usize;
+            // self.client.log_message(MessageType::INFO, &format!("{:#?}, {}", ast.value(), offset)).await;
+            let span = get_definition(&ast, offset);
+            self.client
+                .log_message(MessageType::INFO, &format!("{:?}, ", span))
+                .await;
+            span.and_then(|(_, range)| {
+                let start_position = offset_to_position(range.start, &rope)?;
+                let end_position = offset_to_position(range.end, &rope)?;
+
+                let range = Range::new(start_position, end_position);
+
+                Some(GotoDefinitionResponse::Scalar(Location::new(uri, range)))
+            })
+        }
+        .await;
+        Ok(definition)
+    }
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let reference_list = || -> Option<Vec<Location>> {
+            let uri = params.text_document_position.text_document.uri;
+            let ast = self.ast_map.get(&uri.to_string())?;
+            let rope = self.document_map.get(&uri.to_string())?;
+
+            let position = params.text_document_position.position;
+            let char = rope.try_line_to_char(position.line as usize).ok()?;
+            let offset = char + position.character as usize;
+            let reference_list = get_reference(&ast, offset, false);
+            let ret = reference_list
+                .into_iter()
+                .filter_map(|(_, range)| {
+                    let start_position = offset_to_position(range.start, &rope)?;
+                    let end_position = offset_to_position(range.end, &rope)?;
+
+                    let range = Range::new(start_position, end_position);
+
+                    Some(Location::new(uri.clone(), range))
+                })
+                .collect::<Vec<_>>();
+            Some(ret)
+        }();
+        Ok(reference_list)
+    }
+
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,
@@ -179,163 +277,70 @@ impl LanguageServer for Backend {
         Ok(None)
     }
 
-    async fn initialized(&self, _: InitializedParams) {
-        self.client
-            .log_message(MessageType::INFO, "initialized!")
-            .await;
-    }
-
-    async fn shutdown(&self) -> Result<()> {
-        Ok(())
-    }
-
-    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
-        let reference_list = || -> Option<Vec<Location>> {
-            let uri = params.text_document_position.text_document.uri;
-            let ast = self.ast_map.get(&uri.to_string())?;
-            let rope = self.document_map.get(&uri.to_string())?;
-
-            let position = params.text_document_position.position;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            let reference_list = get_reference(&ast, offset, false);
-            let ret = reference_list
-                .into_iter()
-                .filter_map(|(_, range)| {
-                    let start_position = offset_to_position(range.start, &rope)?;
-                    let end_position = offset_to_position(range.end, &rope)?;
-
-                    let range = Range::new(start_position, end_position);
-
-                    Some(Location::new(uri.clone(), range))
-                })
-                .collect::<Vec<_>>();
-            Some(ret)
-        }();
-        Ok(reference_list)
-    }
-
-    async fn goto_definition(
+    async fn inlay_hint(
         &self,
-        params: GotoDefinitionParams,
-    ) -> Result<Option<GotoDefinitionResponse>> {
-        let definition = || -> Option<GotoDefinitionResponse> {
-            let uri = params.text_document_position_params.text_document.uri;
-            let ast = self.ast_map.get(&uri.to_string())?;
-            let rope = self.document_map.get(&uri.to_string())?;
-
-            let position = params.text_document_position_params.position;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            let span = get_definition(&ast, offset);
-            span.and_then(|(_, range)| {
-                let start_position = offset_to_position(range.start, &rope)?;
-                let end_position = offset_to_position(range.end, &rope)?;
-
-                let range = Range::new(start_position, end_position);
-
-                Some(GotoDefinitionResponse::Scalar(Location::new(uri, range)))
-            })
-        }();
-        Ok(definition)
-    }
-    async fn did_change_workspace_folders(&self, _: DidChangeWorkspaceFoldersParams) {
+        params: tower_lsp::lsp_types::InlayHintParams,
+    ) -> Result<Option<Vec<InlayHint>>> {
         self.client
-            .log_message(MessageType::INFO, "workspace folders changed!")
+            .log_message(MessageType::INFO, "inlay hint")
             .await;
-    }
-
-    async fn did_change_configuration(&self, _: DidChangeConfigurationParams) {
-        self.client
-            .log_message(MessageType::INFO, "configuration changed!")
-            .await;
-    }
-
-    async fn did_change_watched_files(&self, _: DidChangeWatchedFilesParams) {
-        self.client
-            .log_message(MessageType::INFO, "watched files have changed!")
-            .await;
-    }
-
-    async fn execute_command(&self, _: ExecuteCommandParams) -> Result<Option<Value>> {
-        self.client
-            .log_message(MessageType::INFO, "command executed!")
-            .await;
-
-        match self.client.apply_edit(WorkspaceEdit::default()).await {
-            Ok(res) if res.applied => self.client.log_message(MessageType::INFO, "applied").await,
-            Ok(_) => self.client.log_message(MessageType::INFO, "rejected").await,
-            Err(err) => self.client.log_message(MessageType::ERROR, err).await,
+        let uri = &params.text_document.uri;
+        let mut hashmap = HashMap::new();
+        if let Some(ast) = self.ast_map.get(uri.as_str()) {
+            ast.iter().for_each(|(_, v)| {
+                type_inference(&v.body, &mut hashmap);
+            });
         }
 
-        Ok(None)
-    }
+        let document = match self.document_map.get(uri.as_str()) {
+            Some(rope) => rope,
+            None => return Ok(None),
+        };
+        let inlay_hint_list = hashmap
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k.start,
+                    k.end,
+                    match v {
+                        nrs_language_server::chumsky::Value::Null => "null".to_string(),
+                        nrs_language_server::chumsky::Value::Bool(_) => "bool".to_string(),
+                        nrs_language_server::chumsky::Value::Num(_) => "number".to_string(),
+                        nrs_language_server::chumsky::Value::Str(_) => "string".to_string(),
+                        nrs_language_server::chumsky::Value::List(_) => "[]".to_string(),
+                        nrs_language_server::chumsky::Value::Func(_) => v.to_string(),
+                    },
+                )
+            })
+            .filter_map(|item| {
+                // let start_position = offset_to_position(item.0, document)?;
+                let end_position = offset_to_position(item.1, &document)?;
+                let inlay_hint = InlayHint {
+                    text_edits: None,
+                    tooltip: None,
+                    kind: Some(InlayHintKind::TYPE),
+                    padding_left: None,
+                    padding_right: None,
+                    data: None,
+                    position: end_position,
+                    label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
+                        value: item.2,
+                        tooltip: None,
+                        location: Some(Location {
+                            uri: params.text_document.uri.clone(),
+                            range: Range {
+                                start: Position::new(0, 4),
+                                end: Position::new(0, 5),
+                            },
+                        }),
+                        command: None,
+                    }]),
+                };
+                Some(inlay_hint)
+            })
+            .collect::<Vec<_>>();
 
-    async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "file opened!")
-            .await;
-        self.on_change(TextDocumentItem {
-            uri: params.text_document.uri,
-            text: params.text_document.text,
-            version: params.text_document.version,
-        })
-        .await
-    }
-
-    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
-        self.on_change(TextDocumentItem {
-            uri: params.text_document.uri,
-            text: std::mem::take(&mut params.content_changes[0].text),
-            version: params.text_document.version,
-        })
-        .await
-    }
-
-    async fn did_save(&self, _: DidSaveTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "file saved!")
-            .await;
-    }
-
-    async fn did_close(&self, _: DidCloseTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "file closed!")
-            .await;
-    }
-
-    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
-        let workspace_edit = || -> Option<WorkspaceEdit> {
-            let uri = params.text_document_position.text_document.uri;
-            let ast = self.ast_map.get(&uri.to_string())?;
-            let rope = self.document_map.get(&uri.to_string())?;
-
-            let position = params.text_document_position.position;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            let reference_list = get_reference(&ast, offset, true);
-            let new_name = params.new_name;
-            if reference_list.len() > 0 {
-                let edit_list = reference_list
-                    .into_iter()
-                    .filter_map(|(_, range)| {
-                        let start_position = offset_to_position(range.start, &rope)?;
-                        let end_position = offset_to_position(range.end, &rope)?;
-                        Some(TextEdit::new(
-                            Range::new(start_position, end_position),
-                            new_name.clone(),
-                        ))
-                    })
-                    .collect::<Vec<_>>();
-                let mut map = HashMap::new();
-                map.insert(uri, edit_list);
-                let workspace_edit = WorkspaceEdit::new(map);
-                Some(workspace_edit)
-            } else {
-                None
-            }
-        }();
-        Ok(workspace_edit)
+        Ok(Some(inlay_hint_list))
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
@@ -386,6 +391,72 @@ impl LanguageServer for Backend {
         }();
         Ok(completions.map(CompletionResponse::Array))
     }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let workspace_edit = || -> Option<WorkspaceEdit> {
+            let uri = params.text_document_position.text_document.uri;
+            let ast = self.ast_map.get(&uri.to_string())?;
+            let rope = self.document_map.get(&uri.to_string())?;
+
+            let position = params.text_document_position.position;
+            let char = rope.try_line_to_char(position.line as usize).ok()?;
+            let offset = char + position.character as usize;
+            let reference_list = get_reference(&ast, offset, true);
+            let new_name = params.new_name;
+            if reference_list.len() > 0 {
+                let edit_list = reference_list
+                    .into_iter()
+                    .filter_map(|(_, range)| {
+                        let start_position = offset_to_position(range.start, &rope)?;
+                        let end_position = offset_to_position(range.end, &rope)?;
+                        Some(TextEdit::new(
+                            Range::new(start_position, end_position),
+                            new_name.clone(),
+                        ))
+                    })
+                    .collect::<Vec<_>>();
+                let mut map = HashMap::new();
+                map.insert(uri, edit_list);
+                let workspace_edit = WorkspaceEdit::new(map);
+                Some(workspace_edit)
+            } else {
+                None
+            }
+        }();
+        Ok(workspace_edit)
+    }
+
+    async fn did_change_configuration(&self, _: DidChangeConfigurationParams) {
+        self.client
+            .log_message(MessageType::INFO, "configuration changed!")
+            .await;
+    }
+
+    async fn did_change_workspace_folders(&self, _: DidChangeWorkspaceFoldersParams) {
+        self.client
+            .log_message(MessageType::INFO, "workspace folders changed!")
+            .await;
+    }
+
+    async fn did_change_watched_files(&self, _: DidChangeWatchedFilesParams) {
+        self.client
+            .log_message(MessageType::INFO, "watched files have changed!")
+            .await;
+    }
+
+    async fn execute_command(&self, _: ExecuteCommandParams) -> Result<Option<Value>> {
+        self.client
+            .log_message(MessageType::INFO, "command executed!")
+            .await;
+
+        match self.client.apply_edit(WorkspaceEdit::default()).await {
+            Ok(res) if res.applied => self.client.log_message(MessageType::INFO, "applied").await,
+            Ok(_) => self.client.log_message(MessageType::INFO, "rejected").await,
+            Err(err) => self.client.log_message(MessageType::ERROR, err).await,
+        }
+
+        Ok(None)
+    }
 }
 #[derive(Debug, Deserialize, Serialize)]
 struct InlayHintParams {
@@ -435,9 +506,9 @@ impl Backend {
         self.document_map
             .insert(params.uri.to_string(), rope.clone());
         let (ast, errors, semantic_tokens) = parse(&params.text);
-        self.client
-            .log_message(MessageType::INFO, format!("{:?}", errors))
-            .await;
+        // self.client
+        //     .log_message(MessageType::INFO, format!("{:?}", errors))
+        //     .await;
         let diagnostics = errors
             .into_iter()
             .filter_map(|item| {
@@ -495,9 +566,9 @@ impl Backend {
         if let Some(ast) = ast {
             self.ast_map.insert(params.uri.to_string(), ast);
         }
-        self.client
-            .log_message(MessageType::INFO, &format!("{:?}", semantic_tokens))
-            .await;
+        // self.client
+        //     .log_message(MessageType::INFO, &format!("{:?}", semantic_tokens))
+        //     .await;
         self.semantic_token_map
             .insert(params.uri.to_string(), semantic_tokens);
     }
@@ -516,14 +587,14 @@ async fn main() {
         document_map: DashMap::new(),
         semantic_token_map: DashMap::new(),
     })
-    .custom_method("custom/inlay_hint", Backend::inlay_hint)
+    // .custom_method("custom/inlay_hint", Backend::inlay_hint)
     .finish();
     Server::new(stdin, stdout, socket).serve(service).await;
 }
 
 fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
     let line = rope.try_char_to_line(offset).ok()?;
-    let first_char = rope.try_line_to_char(line).ok()?;
-    let column = offset - first_char;
+    let first_char_of_line = rope.try_line_to_char(line).ok()?;
+    let column = offset - first_char_of_line;
     Some(Position::new(line as u32, column as u32))
 }
