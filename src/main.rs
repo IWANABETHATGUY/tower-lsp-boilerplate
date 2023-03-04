@@ -1,5 +1,6 @@
 use std::collections::{HashMap};
 
+use chumsky::primitive::todo;
 use dashmap::DashMap;
 use nrs_language_server::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken};
 use nrs_language_server::completion::completion;
@@ -26,6 +27,7 @@ impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             server_info: None,
+            offset_encoding: None,
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
@@ -35,6 +37,7 @@ impl LanguageServer for Backend {
                     trigger_characters: Some(vec![".".to_string()]),
                     work_done_progress_options: Default::default(),
                     all_commit_characters: None,
+                    completion_item: None
                 }),
                 execute_command_provider: Some(ExecuteCommandOptions {
                     commands: vec!["dummy.do_something".to_string()],
