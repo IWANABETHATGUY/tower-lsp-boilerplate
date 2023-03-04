@@ -5,7 +5,7 @@ use nrs_language_server::chumsky::{parse, type_inference, Func, ImCompleteSemant
 use nrs_language_server::completion::completion;
 use nrs_language_server::jump_definition::get_definition;
 use nrs_language_server::reference::get_reference;
-use nrs_language_server::semantic_token::semantic_token_from_ast;
+use nrs_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -51,32 +51,31 @@ impl LanguageServer for Backend {
                     }),
                     file_operations: None,
                 }),
-                // Some(
-                //     SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
-                //         SemanticTokensRegistrationOptions {
-                //             text_document_registration_options: {
-                //                 TextDocumentRegistrationOptions {
-                //                     document_selector: Some(vec![DocumentFilter {
-                //                         language: Some("nrs".to_string()),
-                //                         scheme: Some("file".to_string()),
-                //                         pattern: None,
-                //                     }]),
-                //                 }
-                //             },
-                //             semantic_tokens_options: SemanticTokensOptions {
-                //                 work_done_progress_options: WorkDoneProgressOptions::default(),
-                //                 legend: SemanticTokensLegend {
-                //                     token_types: LEGEND_TYPE.clone().into(),
-                //                     token_modifiers: vec![],
-                //                 },
-                //                 range: Some(true),
-                //                 full: Some(SemanticTokensFullOptions::Bool(true)),
-                //             },
-                //             static_registration_options: StaticRegistrationOptions::default(),
-                //         },
-                //     ),
-                // )
-                semantic_tokens_provider: None,
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
+                        SemanticTokensRegistrationOptions {
+                            text_document_registration_options: {
+                                TextDocumentRegistrationOptions {
+                                    document_selector: Some(vec![DocumentFilter {
+                                        language: Some("nrs".to_string()),
+                                        scheme: Some("file".to_string()),
+                                        pattern: None,
+                                    }]),
+                                }
+                            },
+                            semantic_tokens_options: SemanticTokensOptions {
+                                work_done_progress_options: WorkDoneProgressOptions::default(),
+                                legend: SemanticTokensLegend {
+                                    token_types: LEGEND_TYPE.into(),
+                                    token_modifiers: vec![],
+                                },
+                                range: Some(true),
+                                full: Some(SemanticTokensFullOptions::Bool(true)),
+                            },
+                            static_registration_options: StaticRegistrationOptions::default(),
+                        },
+                    ),
+                ),
                 // definition: Some(GotoCapability::default()),
                 definition_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
@@ -474,33 +473,6 @@ struct TextDocumentItem {
     version: i32,
 }
 impl Backend {
-    async fn inlay_hint(&self, params: InlayHintParams) -> Result<Vec<(usize, usize, String)>> {
-        let mut hashmap = HashMap::new();
-        if let Some(ast) = self.ast_map.get(&params.path) {
-            ast.iter().for_each(|(_, v)| {
-                type_inference(&v.body, &mut hashmap);
-            });
-        }
-
-        let inlay_hint_list = hashmap
-            .into_iter()
-            .map(|(k, v)| {
-                (
-                    k.start,
-                    k.end,
-                    match v {
-                        nrs_language_server::chumsky::Value::Null => "null".to_string(),
-                        nrs_language_server::chumsky::Value::Bool(_) => "bool".to_string(),
-                        nrs_language_server::chumsky::Value::Num(_) => "number".to_string(),
-                        nrs_language_server::chumsky::Value::Str(_) => "string".to_string(),
-                        nrs_language_server::chumsky::Value::List(_) => "[]".to_string(),
-                        nrs_language_server::chumsky::Value::Func(_) => v.to_string(),
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-        Ok(inlay_hint_list)
-    }
     async fn on_change(&self, params: TextDocumentItem) {
         let rope = ropey::Rope::from_str(&params.text);
         self.document_map

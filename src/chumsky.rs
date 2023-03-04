@@ -175,6 +175,7 @@ pub enum Expr {
     Print(Box<Spanned<Self>>),
 }
 
+#[allow(unused)]
 impl Expr {
     /// Returns `true` if the expr is [`Error`].
     ///
