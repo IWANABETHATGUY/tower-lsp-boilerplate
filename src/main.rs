@@ -559,8 +559,9 @@ async fn main() {
         document_map: DashMap::new(),
         semantic_token_map: DashMap::new(),
     })
-    // .custom_method("custom/inlay_hint", Backend::inlay_hint)
     .finish();
+
+    serde_json::json!({"test": 20});
     Server::new(stdin, stdout, socket).serve(service).await;
 }
 
