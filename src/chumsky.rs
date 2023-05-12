@@ -2,10 +2,10 @@ use chumsky::Parser;
 use chumsky::{prelude::*, stream::Stream};
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap};
-use tower_lsp::lsp_types::{SemanticTokenType};
+use std::collections::HashMap;
+use tower_lsp::lsp_types::SemanticTokenType;
 
-use crate::semantic_token::{LEGEND_TYPE};
+use crate::semantic_token::LEGEND_TYPE;
 
 /// This is the parser and interpreter for the 'Foo' language. See `tutorial.md` in the repository's root to learn
 /// about it.
@@ -73,7 +73,7 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         .map(Token::Op);
 
     // A parser for control characters (delimiters, semicolons, etc.)
-    let ctrl = one_of("()[]{};,").map(|c| Token::Ctrl(c));
+    let ctrl = one_of("()[]{};,").map(Token::Ctrl);
 
     // A parser for identifiers and keywords
     let ident = text::ident().map(|ident: String| match ident.as_str() {
@@ -113,19 +113,6 @@ pub enum Value {
     Str(String),
     List(Vec<Value>),
     Func(String),
-}
-
-impl Value {
-    fn num(self, span: Span) -> Result<f64, Error> {
-        if let Value::Num(x) = self {
-            Ok(x)
-        } else {
-            Err(Error {
-                span,
-                msg: format!("'{}' is not a number", self),
-            })
-        }
-    }
 }
 
 impl std::fmt::Display for Value {
@@ -237,7 +224,7 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
             .labelled("value");
 
             let ident = filter_map(|span, tok| match tok {
-                Token::Ident(ident) => Ok((ident.clone(), span)),
+                Token::Ident(ident) => Ok((ident, span)),
                 _ => Err(Simple::expected_input_found(span, Vec::new(), Some(tok))),
             })
             .labelled("identifier");
@@ -248,7 +235,7 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
                 .chain(just(Token::Ctrl(',')).ignore_then(expr.clone()).repeated())
                 .then_ignore(just(Token::Ctrl(',')).or_not())
                 .or_not()
-                .map(|item| item.unwrap_or_else(Vec::new));
+                .map(|item| item.unwrap_or_default());
 
             // A let expression
             let let_ = just(Token::Let)
@@ -345,15 +332,13 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
             let op = just(Token::Op("==".to_string()))
                 .to(BinaryOp::Eq)
                 .or(just(Token::Op("!=".to_string())).to(BinaryOp::NotEq));
-            let compare = sum
-                .clone()
+
+            sum.clone()
                 .then(op.then(sum).repeated())
                 .foldl(|a, (op, b)| {
                     let span = a.1.start..b.1.end;
                     (Expr::Binary(Box::new(a), op, Box::new(b)), span)
-                });
-
-            compare
+                })
         });
 
         // Blocks are expressions but delimited with braces
@@ -429,14 +414,13 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
 
 pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simple<Token>> + Clone {
     let ident = filter_map(|span, tok| match tok {
-        Token::Ident(ident) => Ok(ident.clone()),
+        Token::Ident(ident) => Ok(ident),
         _ => Err(Simple::expected_input_found(span, Vec::new(), Some(tok))),
     });
 
     // Argument lists are just identifiers separated by commas, surrounded by parentheses
     let args = ident
         .map_with_span(|name, span| (name, span))
-        .clone()
         .separated_by(just(Token::Ctrl(',')))
         .allow_trailing()
         .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
@@ -482,7 +466,7 @@ pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simpl
             for ((name, name_span), f) in fs {
                 if funcs.insert(name.clone(), f).is_some() {
                     return Err(Simple::custom(
-                        name_span.clone(),
+                        name_span,
                         format!("Function '{}' already exists", name),
                     ));
                 }
@@ -490,11 +474,6 @@ pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simpl
             Ok(funcs)
         })
         .then_ignore(end())
-}
-
-struct Error {
-    span: Span,
-    msg: String,
 }
 
 pub fn type_inference(expr: &Spanned<Expr>, symbol_type_table: &mut HashMap<Span, Value>) {

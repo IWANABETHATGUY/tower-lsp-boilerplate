@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use im_rc::Vector;
-use log::debug;
-use tower_lsp::{lsp_types::MessageType, Client};
+
+
 
 use crate::chumsky::{Expr, Func, Spanned};
 /// return (need_to_continue_search, founded reference)
@@ -21,7 +21,7 @@ pub fn get_definition(
     }
 
     for (_, v) in ast.iter() {
-        let args = v.args.iter().map(|arg| arg.clone()).collect::<Vector<_>>();
+        let args = v.args.iter().cloned().collect::<Vector<_>>();
         match get_definition_of_expr(&v.body, args + vector.clone(), ident_offset) {
             (_, Some(value)) => {
                 return Some(value);
@@ -63,15 +63,15 @@ pub fn get_definition_of_expr(
                 (true, None) => {
                     get_definition_of_expr(rest, new_decl + definition_ass_list, ident_offset)
                 }
-                (true, Some(value)) => return (false, Some(value)),
-                (false, None) => return (false, None),
-                (false, Some(value)) => return (false, Some(value)),
+                (true, Some(value)) => (false, Some(value)),
+                (false, None) => (false, None),
+                (false, Some(value)) => (false, Some(value)),
             }
         }
         Expr::Then(first, second) => {
             match get_definition_of_expr(first, definition_ass_list.clone(), ident_offset) {
                 (true, None) => {
-                    get_definition_of_expr(second, definition_ass_list.clone(), ident_offset)
+                    get_definition_of_expr(second, definition_ass_list, ident_offset)
                 }
                 (false, None) => (false, None),
                 (true, Some(value)) | (false, Some(value)) => (false, Some(value)),
@@ -80,7 +80,7 @@ pub fn get_definition_of_expr(
         Expr::Binary(lhs, _, rhs) => {
             match get_definition_of_expr(lhs, definition_ass_list.clone(), ident_offset) {
                 (true, None) => {
-                    get_definition_of_expr(rhs, definition_ass_list.clone(), ident_offset)
+                    get_definition_of_expr(rhs, definition_ass_list, ident_offset)
                 }
                 (false, None) => (false, None),
                 (true, Some(value)) | (false, Some(value)) => (false, Some(value)),
@@ -94,7 +94,7 @@ pub fn get_definition_of_expr(
                 (false, Some(value)) => return (false, Some(value)),
             }
             for expr in &args.0 {
-                match get_definition_of_expr(&expr, definition_ass_list.clone(), ident_offset) {
+                match get_definition_of_expr(expr, definition_ass_list.clone(), ident_offset) {
                     (true, None) => continue,
                     (true, Some(value)) => return (false, Some(value)),
                     (false, None) => return (false, None),
@@ -117,10 +117,10 @@ pub fn get_definition_of_expr(
                 (false, Some(value)) => return (false, Some(value)),
             }
             match get_definition_of_expr(alternative, definition_ass_list, ident_offset) {
-                (true, None) => return (true, None),
-                (true, Some(value)) => return (false, Some(value)),
-                (false, None) => return (false, None),
-                (false, Some(value)) => return (false, Some(value)),
+                (true, None) => (true, None),
+                (true, Some(value)) => (false, Some(value)),
+                (false, None) => (false, None),
+                (false, Some(value)) => (false, Some(value)),
             }
         }
         Expr::Print(expr) => get_definition_of_expr(expr, definition_ass_list, ident_offset),

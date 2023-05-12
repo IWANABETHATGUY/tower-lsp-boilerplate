@@ -201,9 +201,9 @@ impl LanguageServer for Backend {
             let semantic_tokens = im_complete_tokens
                 .iter()
                 .filter_map(|token| {
-                    let line = rope.try_byte_to_line(token.start as usize).ok()? as u32;
+                    let line = rope.try_byte_to_line(token.start).ok()? as u32;
                     let first = rope.try_line_to_char(line as usize).ok()? as u32;
-                    let start = rope.try_byte_to_char(token.start as usize).ok()? as u32 - first;
+                    let start = rope.try_byte_to_char(token.start).ok()? as u32 - first;
                     let delta_line = line - pre_line;
                     let delta_start = if delta_line == 0 {
                         start - pre_start
@@ -246,9 +246,9 @@ impl LanguageServer for Backend {
             let semantic_tokens = im_complete_tokens
                 .iter()
                 .filter_map(|token| {
-                    let line = rope.try_byte_to_line(token.start as usize).ok()? as u32;
+                    let line = rope.try_byte_to_line(token.start).ok()? as u32;
                     let first = rope.try_line_to_char(line as usize).ok()? as u32;
-                    let start = rope.try_byte_to_char(token.start as usize).ok()? as u32 - first;
+                    let start = rope.try_byte_to_char(token.start).ok()? as u32 - first;
                     let ret = Some(SemanticToken {
                         delta_line: line - pre_line,
                         delta_start: if start >= pre_start {
@@ -402,7 +402,7 @@ impl LanguageServer for Backend {
             let offset = char + position.character as usize;
             let reference_list = get_reference(&ast, offset, true);
             let new_name = params.new_name;
-            if reference_list.len() > 0 {
+            if !reference_list.is_empty() {
                 let edit_list = reference_list
                     .into_iter()
                     .filter_map(|(_, range)| {
@@ -513,7 +513,8 @@ impl Backend {
                     chumsky::error::SimpleReason::Custom(msg) => (msg.to_string(), item.span()),
                 };
 
-                let diagnostic = || -> Option<Diagnostic> {
+                
+                || -> Option<Diagnostic> {
                     // let start_line = rope.try_char_to_line(span.start)?;
                     // let first_char = rope.try_line_to_char(start_line)?;
                     // let start_column = span.start - first_char;
@@ -526,8 +527,7 @@ impl Backend {
                         Range::new(start_position, end_position),
                         message,
                     ))
-                }();
-                diagnostic
+                }()
             })
             .collect::<Vec<_>>();
 

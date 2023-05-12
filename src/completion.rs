@@ -51,11 +51,7 @@ pub fn get_completion_of(
         //     .iter()
         //     .for_each(|expr| get_definition(expr, definition_ass_list)),
         Expr::Local(local) => {
-            if ident_offset >= local.1.start && ident_offset < local.1.end {
-                false
-            } else {
-                true
-            }
+            !(ident_offset >= local.1.start && ident_offset < local.1.end)
         }
         Expr::Let(name, lhs, rest, _name_span) => {
             definition_map.insert(
@@ -64,7 +60,7 @@ pub fn get_completion_of(
             );
             match get_completion_of(lhs, definition_map, ident_offset) {
                 true => get_completion_of(rest, definition_map, ident_offset),
-                false => return false,
+                false => false,
             }
         }
         Expr::Then(first, second) => match get_completion_of(first, definition_map, ident_offset) {
@@ -81,7 +77,7 @@ pub fn get_completion_of(
                 false => return false,
             }
             for expr in &args.0 {
-                match get_completion_of(&expr, definition_map, ident_offset) {
+                match get_completion_of(expr, definition_map, ident_offset) {
                     true => continue,
                     false => return false,
                 }

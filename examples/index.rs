@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use im_rc::Vector;
+
 use nrs_language_server::chumsky::{parse, type_inference};
 
 fn main() {
@@ -8,7 +8,7 @@ fn main() {
     // let source = r#"
     // test
     // println!("{:?}", &source[10..11]);
-    let (ast, errors, semantic_tokens) = parse(source);
+    let (ast, errors, _semantic_tokens) = parse(source);
     println!("{:?}", errors);
     // if let Some(ref ast) = ast {
     //     println!("{:#?}", ast);
@@ -18,7 +18,7 @@ fn main() {
     // println!("{:?}", semantic_tokens);
     let mut hashmap = HashMap::new();
     if let Some(ast) = ast {
-        ast.into_iter().for_each(|(k, v)| {
+        ast.into_iter().for_each(|(_k, v)| {
             type_inference(&v.body, &mut hashmap);
         });
     }

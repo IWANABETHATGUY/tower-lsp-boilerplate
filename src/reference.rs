@@ -118,7 +118,7 @@ pub fn get_reference_of_expr(
             );
             get_reference_of_expr(
                 rest,
-                new_decl + definition_ass_list.clone(),
+                new_decl + definition_ass_list,
                 next_symbol,
                 reference_list,
                 include_self,
@@ -134,7 +134,7 @@ pub fn get_reference_of_expr(
             );
             get_reference_of_expr(
                 second,
-                definition_ass_list.clone(),
+                definition_ass_list,
                 reference_symbol,
                 reference_list,
                 include_self,
@@ -150,7 +150,7 @@ pub fn get_reference_of_expr(
             );
             get_reference_of_expr(
                 rhs,
-                definition_ass_list.clone(),
+                definition_ass_list,
                 reference_symbol,
                 reference_list,
                 include_self,
@@ -166,7 +166,7 @@ pub fn get_reference_of_expr(
             );
             for expr in &args.0 {
                 get_reference_of_expr(
-                    &expr,
+                    expr,
                     definition_ass_list.clone(),
                     reference_symbol.clone(),
                     reference_list,
