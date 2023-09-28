@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use dashmap::DashMap;
-use nrs_language_server::chumsky::{parse, type_inference, Func, ImCompleteSemanticToken};
+use nrs_language_server::chumsky::{
+    parse, type_inference, Func, ImCompleteSemanticToken, ParserResult,
+};
 use nrs_language_server::completion::completion;
 use nrs_language_server::jump_definition::get_definition;
 use nrs_language_server::reference::get_reference;
@@ -472,16 +474,18 @@ struct TextDocumentItem {
     text: String,
     version: i32,
 }
+
 impl Backend {
     async fn on_change(&self, params: TextDocumentItem) {
         let rope = ropey::Rope::from_str(&params.text);
         self.document_map
             .insert(params.uri.to_string(), rope.clone());
-        let (ast, errors, semantic_tokens) = parse(&params.text);
-        // self.client
-        //     .log_message(MessageType::INFO, format!("{:?}", errors))
-        //     .await;
-        let diagnostics = errors
+        let ParserResult {
+            ast,
+            parse_errors,
+            semantic_tokens,
+        } = parse(&params.text);
+        let diagnostics = parse_errors
             .into_iter()
             .filter_map(|item| {
                 let (message, span) = match item.reason() {
@@ -513,7 +517,6 @@ impl Backend {
                     chumsky::error::SimpleReason::Custom(msg) => (msg.to_string(), item.span()),
                 };
 
-                
                 || -> Option<Diagnostic> {
                     // let start_line = rope.try_char_to_line(span.start)?;
                     // let first_char = rope.try_line_to_char(start_line)?;

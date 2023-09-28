@@ -2,14 +2,9 @@ use std::collections::HashMap;
 
 use im_rc::Vector;
 
-
-
 use crate::chumsky::{Expr, Func, Spanned};
 /// return (need_to_continue_search, founded reference)
-pub fn get_definition(
-    ast: &HashMap<String, Func>,
-    ident_offset: usize,
-) -> Option<Spanned<String>> {
+pub fn get_definition(ast: &HashMap<String, Func>, ident_offset: usize) -> Option<Spanned<String>> {
     let mut vector = Vector::new();
     for (_, v) in ast.iter() {
         if v.name.1.start < ident_offset && v.name.1.end > ident_offset {
@@ -22,11 +17,10 @@ pub fn get_definition(
 
     for (_, v) in ast.iter() {
         let args = v.args.iter().cloned().collect::<Vector<_>>();
-        match get_definition_of_expr(&v.body, args + vector.clone(), ident_offset) {
-            (_, Some(value)) => {
-                return Some(value);
-            }
-            _ => {}
+        if let (_, Some(value)) =
+            get_definition_of_expr(&v.body, args + vector.clone(), ident_offset)
+        {
+            return Some(value);
         }
     }
     None
@@ -70,18 +64,14 @@ pub fn get_definition_of_expr(
         }
         Expr::Then(first, second) => {
             match get_definition_of_expr(first, definition_ass_list.clone(), ident_offset) {
-                (true, None) => {
-                    get_definition_of_expr(second, definition_ass_list, ident_offset)
-                }
+                (true, None) => get_definition_of_expr(second, definition_ass_list, ident_offset),
                 (false, None) => (false, None),
                 (true, Some(value)) | (false, Some(value)) => (false, Some(value)),
             }
         }
         Expr::Binary(lhs, _, rhs) => {
             match get_definition_of_expr(lhs, definition_ass_list.clone(), ident_offset) {
-                (true, None) => {
-                    get_definition_of_expr(rhs, definition_ass_list, ident_offset)
-                }
+                (true, None) => get_definition_of_expr(rhs, definition_ass_list, ident_offset),
                 (false, None) => (false, None),
                 (true, Some(value)) | (false, Some(value)) => (false, Some(value)),
             }
