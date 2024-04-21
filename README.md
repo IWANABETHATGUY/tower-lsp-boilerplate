@@ -1,10 +1,11 @@
 # boilerplate for a  rust language server powered by `tower-lsp` 
 ## Introduction
 This repo is a template for `tower-lsp`, a useful github project template which makes writing new language servers easier.
-## Development
+## Development using VSCode
 1. `pnpm i`
 2. `cargo build`
-3. press <kbd>F5</kbd> or change to the Debug panel and click <kbd>Launch Client</kbd>
+3. Open the project in VSCode: `code .`
+4. In VSCode, press <kbd>F5</kbd> or change to the Debug panel and click <kbd>Launch Client</kbd>
 > **Note**  
 > 
 > If encountered errors like `Cannot find module '/xxx/xxx/dist/extension.js'`
