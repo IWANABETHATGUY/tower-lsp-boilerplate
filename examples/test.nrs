@@ -1,0 +1,27 @@
+fn factorial(x) {
+    // Conditionals are supported!
+    if x == 0 {
+        1
+    } else {
+        x * factorial(x - 1)
+    }
+}
+
+// The main function
+fn main() {
+    let three = 3;
+    let meaning_of_life = three * 14 + 1;
+
+    print("Hello, world!");
+    print("The meaning of life is...");
+
+    if meaning_of_life == 42 {
+        print(meaning_of_life);
+    } else {
+        print("...something we cannot know");
+
+        print("However, I can tell you that the factorial of 10 is...");
+        // Function calling
+        print(factorial(10));
+    }
+}

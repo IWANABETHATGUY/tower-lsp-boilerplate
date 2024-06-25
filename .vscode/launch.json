@@ -49,7 +49,7 @@
       "name": "Client + Server",
       "configurations": [
         "Launch Client",
-        "Attach to Server"
+        // "Attach to Server"
       ]
     }
   ]
