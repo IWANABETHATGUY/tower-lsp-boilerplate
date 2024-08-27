@@ -1,6 +1,6 @@
 {
-  "name": "nrs-language-server",
-  "description": "nano rust language server",
+  "name": "l-language-server",
+  "description": "l language server",
   "license": "MIT",
   "version": "1.5.0",
   "categories": [],
@@ -16,23 +16,23 @@
   },
   "enabledApiProposals": [],
   "activationEvents": [
-    "onLanguage:nrs"
+    "onLanguage:l"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
       {
-        "id": "nrs",
+        "id": "l",
         "extensions": [
-          ".nrs"
+          ".l"
         ]
       }
     ],
     "configuration": {
       "type": "object",
-      "title": "nrs-language-server",
+      "title": "l-language-server",
       "properties": {
-        "nrs-language-server.trace.server": {
+        "l-language-server.trace.server": {
           "type": "string",
           "scope": "window",
           "enum": [
@@ -82,5 +82,6 @@
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"
-  }
+  },
+  "packageManager": "pnpm@8.15.7+sha512.c85cd21b6da10332156b1ca2aa79c0a61ee7ad2eb0453b88ab299289e9e8ca93e6091232b25c07cbf61f6df77128d9c849e5c9ac6e44854dbd211c49f3a67adc"
 }

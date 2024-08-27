@@ -406,10 +406,14 @@ name = "l-language-server"
 version = "0.1.0"
 dependencies = [
  "chumsky",
+ "codespan-reporting",
  "dashmap",
+ "derivative",
  "env_logger",
  "im-rc",
+ "l-lang",
  "log",
+ "logos",
  "ropey",
  "serde",
  "serde_json",

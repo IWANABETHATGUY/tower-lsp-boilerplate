@@ -18,7 +18,7 @@
         "script": "watch"
       },
       "env": {
-        "SERVER_PATH": "${workspaceRoot}/target/debug/nrs-language-server"
+        "SERVER_PATH": "${workspaceRoot}/target/debug/l-language-server"
       }
     },
     // {
@@ -49,7 +49,6 @@
       "name": "Client + Server",
       "configurations": [
         "Launch Client",
-        // "Attach to Server"
       ]
     }
   ]

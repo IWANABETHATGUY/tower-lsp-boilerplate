@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use tower_lsp::lsp_types::{SemanticTokenType};
+use tower_lsp::lsp_types::SemanticTokenType;
 
 use crate::chumsky::{Expr, Func, ImCompleteSemanticToken, Spanned};
 

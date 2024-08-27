@@ -9,7 +9,7 @@ use logos::Logos;
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        std::process::exit(1);
+        panic!("The args should not less than two");
     }
 
     let source = std::fs::read_to_string(&args[1])?;

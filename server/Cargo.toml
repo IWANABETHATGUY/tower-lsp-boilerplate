@@ -15,4 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 dashmap = "5.1.0"
 log = "0.4.14"
 im-rc = "15.0.0"
-
+l-lang = { path = "../l-lang" }
+logos = "0.14.0"
+codespan-reporting = "0.11.1"
+derivative = "2.2.0"
