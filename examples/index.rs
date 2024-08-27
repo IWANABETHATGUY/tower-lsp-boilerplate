@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use nrs_language_server::chumsky::{parse, type_inference, ParserResult};
+use l_language_server::chumsky::{parse, type_inference, ParserResult};
 
 fn main() {
     let source = include_str!("./test.nrs");

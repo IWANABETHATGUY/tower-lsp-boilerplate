@@ -1,0 +1,77 @@
+token Fn='fn' Let='let' Return='return' True='true' False='false' Struct='struct';
+token Else='else' If='if' ;
+token Arrow='->' LPar='(' RPar=')' Comma=',' Colon=':' LBrace='{' RBrace='}'
+      Semi=';' Asn='=' Plus='+' Minus='-' Star='*' Slash='/' Dot='.';
+token Usize='usize' Boolean='bool';
+token Name='<name>' Int='<int>';
+token Whitespace;
+
+skip Whitespace;
+
+start file;
+
+file: (fn | struct)*;
+fn: 'fn' Name param_list [return_type] block;
+param_list: '(' [params] ')';
+params: param (?1 ',' param)* [','];
+param: Name ':' type_expr;
+return_type: '->' type_expr;
+type_expr: Usize | Boolean;
+block: '{' stmt* '}';
+struct: Struct Name '{' struct_field (',' struct_field)* '}';
+struct_field: Name ':' type_expr;
+stmt:
+  stmt_expr
+| stmt_let
+| block
+| stmt_return
+| stmt_if
+;
+stmt_expr: expr ';';
+stmt_let: 'let' Name '=' expr ';';
+stmt_return: 'return' [expr] ';';
+stmt_if: 'if' '(' expr ')' block
+  (?1 alter)*
+  [consequent]
+  ';'
+;
+alter: 'else' 'if' '(' expr ')' block;
+consequent: 'else' block;
+expr: 
+ ?1 member_expr 
+| ?2 struct_constructor
+| ?3 factor
+| ?4 expr_call 
+| expr_name
+| expr_literal
+| expr_paren
+;
+factor:
+  factor ('*' | '/') factor
+| prime
+;
+
+prime:
+  prime ('+' | '-') prime
+| expr_paren
+| expr_literal
+| ?1 member_expr 
+| ?2 expr_call 
+| expr_name
+;
+
+
+expr_call: Name arg_list;
+
+/// Construct
+struct_constructor: Name '{' struct_constructor_field (',' struct_constructor_field)* '}' ;
+struct_constructor_field: Name ':' expr_literal;
+
+arg_list: '(' [arguments] ')';
+arguments: expr (',' expr)*;
+expr_literal: Int | 'true' | 'false';
+expr_name: Name;
+member_expr: member_expr '.' Name
+| Name
+;
+expr_paren: '(' expr ')';
