@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use dashmap::DashMap;
+use log::debug;
 use nrs_language_server::chumsky::{
     parse, type_inference, Func, ImCompleteSemanticToken, ParserResult,
 };
@@ -87,9 +88,7 @@ impl LanguageServer for Backend {
         })
     }
     async fn initialized(&self, _: InitializedParams) {
-        self.client
-            .log_message(MessageType::INFO, "initialized!")
-            .await;
+        debug!("initialized!");
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -97,21 +96,19 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "file opened!")
-            .await;
+        debug!("file opened");
         self.on_change(TextDocumentItem {
             uri: params.text_document.uri,
-            text: params.text_document.text,
+            text: &params.text_document.text,
             version: params.text_document.version,
         })
         .await
     }
 
-    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
         self.on_change(TextDocumentItem {
+            text: &params.content_changes[0].text,
             uri: params.text_document.uri,
-            text: std::mem::take(&mut params.content_changes[0].text),
             version: params.text_document.version,
         })
         .await
@@ -470,15 +467,15 @@ impl Notification for CustomNotification {
     type Params = InlayHintParams;
     const METHOD: &'static str = "custom/notification";
 }
-struct TextDocumentItem {
+struct TextDocumentItem<'a> {
     uri: Url,
-    text: String,
+    text: &'a str,
     version: i32,
 }
 
 impl Backend {
-    async fn on_change(&self, params: TextDocumentItem) {
-        let rope = ropey::Rope::from_str(&params.text);
+    async fn on_change<'a>(&self, params: TextDocumentItem<'a>) {
+        let rope = ropey::Rope::from_str(params.text);
         self.document_map
             .insert(params.uri.to_string(), rope.clone());
         let ParserResult {
