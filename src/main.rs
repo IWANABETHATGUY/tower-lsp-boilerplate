@@ -495,14 +495,8 @@ impl Backend {
                     chumsky::error::SimpleReason::Custom(msg) => (msg.to_string(), item.span()),
                 };
 
-                // let start_line = rope.try_char_to_line(span.start)?;
-                // let first_char = rope.try_line_to_char(start_line)?;
-                // let start_column = span.start - first_char;
                 let start_position = offset_to_position(span.start, &rope)?;
                 let end_position = offset_to_position(span.end, &rope)?;
-                // let end_line = rope.try_char_to_line(span.end)?;
-                // let first_char = rope.try_line_to_char(end_line)?;
-                // let end_column = span.end - first_char;
                 Some(Diagnostic::new_simple(
                     Range::new(start_position, end_position),
                     message,
@@ -517,9 +511,6 @@ impl Backend {
         if let Some(ast) = ast {
             self.ast_map.insert(params.uri.to_string(), ast);
         }
-        // self.client
-        //     .log_message(MessageType::INFO, &format!("{:?}", semantic_tokens))
-        //     .await;
         self.semantic_token_map
             .insert(params.uri.to_string(), semantic_tokens);
     }
