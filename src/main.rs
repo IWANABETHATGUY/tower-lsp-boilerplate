@@ -464,6 +464,7 @@ struct InlayHintParams {
     path: String,
 }
 
+#[allow(unused)]
 enum CustomNotification {}
 impl Notification for CustomNotification {
     type Params = InlayHintParams;
