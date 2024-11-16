@@ -26,6 +26,7 @@ pub enum Token {
     Ctrl(char),
     Ident(String),
     Fn,
+    Struct,
     Let,
     Print,
     If,
@@ -47,6 +48,7 @@ impl fmt::Display for Token {
             Token::Print => write!(f, "print"),
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),
+            Token::Struct => write!(f, "struct"),
         }
     }
 }
@@ -85,6 +87,7 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "true" => Token::Bool(true),
         "false" => Token::Bool(false),
         "null" => Token::Null,
+        "struct" => Token::Struct,
         _ => Token::Ident(ident),
     });
 
@@ -209,6 +212,11 @@ pub struct Func {
     pub body: Spanned<Expr>,
     pub name: Spanned<String>,
     pub span: Span,
+}
+
+#[derive(Debug)]
+pub enum FuncOrStruct {
+    Func(Func),
 }
 
 fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone {
@@ -412,7 +420,8 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
     })
 }
 
-pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simple<Token>> + Clone {
+pub fn funcs_parser(
+) -> impl Parser<Token, HashMap<String, FuncOrStruct>, Error = Simple<Token>> + Clone {
     let ident = filter_map(|span, tok| match tok {
         Token::Ident(ident) => Ok(ident),
         _ => Err(Simple::expected_input_found(span, Vec::new(), Some(tok))),
@@ -450,12 +459,12 @@ pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simpl
         .map_with_span(|((name, args), body), span| {
             (
                 name.clone(),
-                Func {
+                FuncOrStruct::Func(Func {
                     args,
                     body,
                     name,
                     span,
-                },
+                }),
             )
         })
         .labelled("function");
@@ -590,6 +599,7 @@ pub fn parse(src: &str) -> ParserResult {
                         .position(|item| item == &SemanticTokenType::KEYWORD)
                         .unwrap(),
                 }),
+                Token::Struct => None,
             })
             .collect::<Vec<_>>();
         let len = src.chars().count();
