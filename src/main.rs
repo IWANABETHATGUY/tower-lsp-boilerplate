@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use dashmap::DashMap;
+use log::debug;
 use nrs_language_server::chumsky::{
     parse, type_inference, Func, ImCompleteSemanticToken, ParserResult,
 };
@@ -87,9 +88,7 @@ impl LanguageServer for Backend {
         })
     }
     async fn initialized(&self, _: InitializedParams) {
-        self.client
-            .log_message(MessageType::INFO, "initialized!")
-            .await;
+        debug!("initialized!");
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -97,35 +96,29 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "file opened!")
-            .await;
+        debug!("file opened");
         self.on_change(TextDocumentItem {
             uri: params.text_document.uri,
-            text: params.text_document.text,
+            text: &params.text_document.text,
             version: params.text_document.version,
         })
         .await
     }
 
-    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
         self.on_change(TextDocumentItem {
+            text: &params.content_changes[0].text,
             uri: params.text_document.uri,
-            text: std::mem::take(&mut params.content_changes[0].text),
             version: params.text_document.version,
         })
         .await
     }
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "file saved!")
-            .await;
+        debug!("file saved!");
     }
     async fn did_close(&self, _: DidCloseTextDocumentParams) {
-        self.client
-            .log_message(MessageType::INFO, "file closed!")
-            .await;
+        debug!("file closed!");
     }
 
     async fn goto_definition(
@@ -142,9 +135,6 @@ impl LanguageServer for Backend {
             let offset = char + position.character as usize;
             // self.client.log_message(MessageType::INFO, &format!("{:#?}, {}", ast.value(), offset)).await;
             let span = get_definition(&ast, offset);
-            self.client
-                .log_message(MessageType::INFO, &format!("{:?}, ", span))
-                .await;
             span.and_then(|(_, range)| {
                 let start_position = offset_to_position(range.start, &rope)?;
                 let end_position = offset_to_position(range.end, &rope)?;
@@ -188,9 +178,7 @@ impl LanguageServer for Backend {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
         let uri = params.text_document.uri.to_string();
-        self.client
-            .log_message(MessageType::LOG, "semantic_token_full")
-            .await;
+        debug!("semantic_token_full");
         let semantic_tokens = || -> Option<Vec<SemanticToken>> {
             let mut im_complete_tokens = self.semantic_token_map.get_mut(&uri)?;
             let rope = self.document_map.get(&uri)?;
@@ -269,22 +257,19 @@ impl LanguageServer for Backend {
                 .collect::<Vec<_>>();
             Some(semantic_tokens)
         }();
-        if let Some(semantic_token) = semantic_tokens {
-            return Ok(Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
+        Ok(semantic_tokens.map(|data| {
+            SemanticTokensRangeResult::Tokens(SemanticTokens {
                 result_id: None,
-                data: semantic_token,
-            })));
-        }
-        Ok(None)
+                data,
+            })
+        }))
     }
 
     async fn inlay_hint(
         &self,
         params: tower_lsp::lsp_types::InlayHintParams,
     ) -> Result<Option<Vec<InlayHint>>> {
-        self.client
-            .log_message(MessageType::INFO, "inlay hint")
-            .await;
+        debug!("inlay hint");
         let uri = &params.text_document.uri;
         let mut hashmap = HashMap::new();
         if let Some(ast) = self.ast_map.get(uri.as_str()) {
@@ -331,7 +316,7 @@ impl LanguageServer for Backend {
                             uri: params.text_document.uri.clone(),
                             range: Range {
                                 start: Position::new(0, 4),
-                                end: Position::new(0, 5),
+                                end: Position::new(0, 10),
                             },
                         }),
                         command: None,
@@ -428,27 +413,19 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change_configuration(&self, _: DidChangeConfigurationParams) {
-        self.client
-            .log_message(MessageType::INFO, "configuration changed!")
-            .await;
+        debug!("configuration changed!");
     }
 
     async fn did_change_workspace_folders(&self, _: DidChangeWorkspaceFoldersParams) {
-        self.client
-            .log_message(MessageType::INFO, "workspace folders changed!")
-            .await;
+        debug!("workspace folders changed!");
     }
 
     async fn did_change_watched_files(&self, _: DidChangeWatchedFilesParams) {
-        self.client
-            .log_message(MessageType::INFO, "watched files have changed!")
-            .await;
+        debug!("watched files have changed!");
     }
 
     async fn execute_command(&self, _: ExecuteCommandParams) -> Result<Option<Value>> {
-        self.client
-            .log_message(MessageType::INFO, "command executed!")
-            .await;
+        debug!("command executed!");
 
         match self.client.apply_edit(WorkspaceEdit::default()).await {
             Ok(res) if res.applied => self.client.log_message(MessageType::INFO, "applied").await,
@@ -470,15 +447,15 @@ impl Notification for CustomNotification {
     type Params = InlayHintParams;
     const METHOD: &'static str = "custom/notification";
 }
-struct TextDocumentItem {
+struct TextDocumentItem<'a> {
     uri: Url,
-    text: String,
+    text: &'a str,
     version: i32,
 }
 
 impl Backend {
-    async fn on_change(&self, params: TextDocumentItem) {
-        let rope = ropey::Rope::from_str(&params.text);
+    async fn on_change<'a>(&self, params: TextDocumentItem<'a>) {
+        let rope = ropey::Rope::from_str(params.text);
         self.document_map
             .insert(params.uri.to_string(), rope.clone());
         let ParserResult {
@@ -518,20 +495,12 @@ impl Backend {
                     chumsky::error::SimpleReason::Custom(msg) => (msg.to_string(), item.span()),
                 };
 
-                || -> Option<Diagnostic> {
-                    // let start_line = rope.try_char_to_line(span.start)?;
-                    // let first_char = rope.try_line_to_char(start_line)?;
-                    // let start_column = span.start - first_char;
-                    let start_position = offset_to_position(span.start, &rope)?;
-                    let end_position = offset_to_position(span.end, &rope)?;
-                    // let end_line = rope.try_char_to_line(span.end)?;
-                    // let first_char = rope.try_line_to_char(end_line)?;
-                    // let end_column = span.end - first_char;
-                    Some(Diagnostic::new_simple(
-                        Range::new(start_position, end_position),
-                        message,
-                    ))
-                }()
+                let start_position = offset_to_position(span.start, &rope)?;
+                let end_position = offset_to_position(span.end, &rope)?;
+                Some(Diagnostic::new_simple(
+                    Range::new(start_position, end_position),
+                    message,
+                ))
             })
             .collect::<Vec<_>>();
 
@@ -542,9 +511,6 @@ impl Backend {
         if let Some(ast) = ast {
             self.ast_map.insert(params.uri.to_string(), ast);
         }
-        // self.client
-        //     .log_message(MessageType::INFO, &format!("{:?}", semantic_tokens))
-        //     .await;
         self.semantic_token_map
             .insert(params.uri.to_string(), semantic_tokens);
     }
