@@ -53,7 +53,6 @@
   },
   "scripts": {
     "postinstall": "cd client && pnpm i",
-    "vscode:prepublish": "npm run esbuild-base -- --minify",
     "test-compile": "tsc -p ./",
     "compile": "cross-env NODE_ENV=production tsc -b",
     "watch": "rm -rf dist && tsc -b -w",
@@ -75,12 +74,15 @@
     "eslint": "^7.6.0",
     "glob": "^7.1.7",
     "mocha": "^8.0.1",
+    "ts-loader": "^9.5.1",
     "typescript": "5.4.5",
     "vscode-test": "^1.4.0",
     "vscode-uri": "^3.0.2",
-    "webpack": "^5.82.1"
+    "webpack": "^5.82.1",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"
-  }
+  },
+  "packageManager": "pnpm@8.15.7"
 }
