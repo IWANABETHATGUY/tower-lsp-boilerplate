@@ -47,12 +47,7 @@ pub fn get_completion_of(
     match &expr.0 {
         Expr::Error => true,
         Expr::Value(_) => true,
-        // Expr::List(exprs) => exprs
-        //     .iter()
-        //     .for_each(|expr| get_definition(expr, definition_ass_list)),
-        Expr::Local(local) => {
-            !(ident_offset >= local.1.start && ident_offset < local.1.end)
-        }
+        Expr::Local(local) => !(ident_offset >= local.1.start && ident_offset < local.1.end),
         Expr::Let(name, lhs, rest, _name_span) => {
             definition_map.insert(
                 name.clone(),
