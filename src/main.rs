@@ -293,8 +293,6 @@ impl LanguageServer for Backend {
                         nrs_language_server::chumsky::Value::Bool(_) => "bool".to_string(),
                         nrs_language_server::chumsky::Value::Num(_) => "number".to_string(),
                         nrs_language_server::chumsky::Value::Str(_) => "string".to_string(),
-                        nrs_language_server::chumsky::Value::List(_) => "[]".to_string(),
-                        nrs_language_server::chumsky::Value::Func(_) => v.to_string(),
                     },
                 )
             })

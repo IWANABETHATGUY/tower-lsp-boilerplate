@@ -6,10 +6,11 @@ use std::collections::HashMap;
 use tower_lsp::lsp_types::SemanticTokenType;
 
 use crate::semantic_token::LEGEND_TYPE;
+use crate::span::Span;
 
 /// This is the parser and interpreter for the 'Foo' language. See `tutorial.md` in the repository's root to learn
 /// about it.
-pub type Span = std::ops::Range<usize>;
+
 #[derive(Debug)]
 pub struct ImCompleteSemanticToken {
     pub start: usize,
@@ -31,6 +32,8 @@ pub enum Token {
     If,
     Else,
 }
+
+pub type Ast = HashMap<String, Func>;
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -111,8 +114,6 @@ pub enum Value {
     Bool(bool),
     Num(f64),
     Str(String),
-    List(Vec<Value>),
-    Func(String),
 }
 
 impl std::fmt::Display for Value {
@@ -122,15 +123,6 @@ impl std::fmt::Display for Value {
             Self::Bool(x) => write!(f, "{}", x),
             Self::Num(x) => write!(f, "{}", x),
             Self::Str(x) => write!(f, "{}", x),
-            Self::List(xs) => write!(
-                f,
-                "[{}]",
-                xs.iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-            Self::Func(name) => write!(f, "<function: {}>", name),
         }
     }
 }
@@ -391,7 +383,11 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
                 let span = a.1.start..b.1.end;
                 (Expr::Then(Box::new(a), Box::new(b)), span)
             });
+        let a = 10;
 
+        if a == 10 {
+        } else {
+        }
         block_chain
             // Expressions, chained by semicolons, are statements
             .or(raw_expr.clone())

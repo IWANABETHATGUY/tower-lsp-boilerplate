@@ -16,5 +16,8 @@ serde = { version = "1.0", features = ["derive"] }
 dashmap = "6.1.0"
 log = "0.4.14"
 im-rc = "15.0.0"
+oxc_index = "0.36.0"
+anyhow = "1.0.93"
+thiserror = "2.0.3"
 
 
