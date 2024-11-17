@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use dashmap::DashMap;
 use log::debug;
 use nrs_language_server::chumsky::{
-    parse, type_inference, Func, ImCompleteSemanticToken, ParserResult,
+    parse, type_inference, Func, FuncOrStruct, ImCompleteSemanticToken, ParserResult,
 };
 use nrs_language_server::completion::completion;
 use nrs_language_server::jump_definition::get_definition;
@@ -19,7 +19,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 #[derive(Debug)]
 struct Backend {
     client: Client,
-    ast_map: DashMap<String, HashMap<String, Func>>,
+    ast_map: DashMap<String, HashMap<String, FuncOrStruct>>,
     document_map: DashMap<String, Rope>,
     semantic_token_map: DashMap<String, Vec<ImCompleteSemanticToken>>,
 }
@@ -125,52 +125,54 @@ impl LanguageServer for Backend {
         &self,
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        let definition = async {
-            let uri = params.text_document_position_params.text_document.uri;
-            let ast = self.ast_map.get(uri.as_str())?;
-            let rope = self.document_map.get(uri.as_str())?;
-
-            let position = params.text_document_position_params.position;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            // self.client.log_message(MessageType::INFO, &format!("{:#?}, {}", ast.value(), offset)).await;
-            let span = get_definition(&ast, offset);
-            span.and_then(|(_, range)| {
-                let start_position = offset_to_position(range.start, &rope)?;
-                let end_position = offset_to_position(range.end, &rope)?;
-
-                let range = Range::new(start_position, end_position);
-
-                Some(GotoDefinitionResponse::Scalar(Location::new(uri, range)))
-            })
-        }
-        .await;
-        Ok(definition)
+        Ok(None)
+        // let definition = async {
+        //     let uri = params.text_document_position_params.text_document.uri;
+        //     let ast = self.ast_map.get(uri.as_str())?;
+        //     let rope = self.document_map.get(uri.as_str())?;
+        //
+        //     let position = params.text_document_position_params.position;
+        //     let char = rope.try_line_to_char(position.line as usize).ok()?;
+        //     let offset = char + position.character as usize;
+        //     // self.client.log_message(MessageType::INFO, &format!("{:#?}, {}", ast.value(), offset)).await;
+        //     let span = get_definition(&ast, offset);
+        //     span.and_then(|(_, range)| {
+        //         let start_position = offset_to_position(range.start, &rope)?;
+        //         let end_position = offset_to_position(range.end, &rope)?;
+        //
+        //         let range = Range::new(start_position, end_position);
+        //
+        //         Some(GotoDefinitionResponse::Scalar(Location::new(uri, range)))
+        //     })
+        // }
+        // .await;
+        // Ok(definition)
     }
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
-        let reference_list = || -> Option<Vec<Location>> {
-            let uri = params.text_document_position.text_document.uri;
-            let ast = self.ast_map.get(&uri.to_string())?;
-            let rope = self.document_map.get(&uri.to_string())?;
-
-            let position = params.text_document_position.position;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            let reference_list = get_reference(&ast, offset, false);
-            let ret = reference_list
-                .into_iter()
-                .filter_map(|(_, range)| {
-                    let start_position = offset_to_position(range.start, &rope)?;
-                    let end_position = offset_to_position(range.end, &rope)?;
-
-                    let range = Range::new(start_position, end_position);
-
-                    Some(Location::new(uri.clone(), range))
-                })
-                .collect::<Vec<_>>();
-            Some(ret)
-        }();
-        Ok(reference_list)
+        return todo!();
+        // let reference_list = || -> Option<Vec<Location>> {
+        //     let uri = params.text_document_position.text_document.uri;
+        //     let ast = self.ast_map.get(&uri.to_string())?;
+        //     let rope = self.document_map.get(&uri.to_string())?;
+        //
+        //     let position = params.text_document_position.position;
+        //     let char = rope.try_line_to_char(position.line as usize).ok()?;
+        //     let offset = char + position.character as usize;
+        //     let reference_list = get_reference(&ast, offset, false);
+        //     let ret = reference_list
+        //         .into_iter()
+        //         .filter_map(|(_, range)| {
+        //             let start_position = offset_to_position(range.start, &rope)?;
+        //             let end_position = offset_to_position(range.end, &rope)?;
+        //
+        //             let range = Range::new(start_position, end_position);
+        //
+        //             Some(Location::new(uri.clone(), range))
+        //         })
+        //         .collect::<Vec<_>>();
+        //     Some(ret)
+        // }();
+        // Ok(reference_list)
     }
 
     async fn semantic_tokens_full(
@@ -271,111 +273,112 @@ impl LanguageServer for Backend {
     ) -> Result<Option<Vec<InlayHint>>> {
         debug!("inlay hint");
         let uri = &params.text_document.uri;
-        let mut hashmap = HashMap::new();
+        // let mut hashmap = HashMap::new();
         if let Some(ast) = self.ast_map.get(uri.as_str()) {
-            ast.iter().for_each(|(_, v)| {
-                type_inference(&v.body, &mut hashmap);
-            });
+            // ast.iter().for_each(|(_, v)| {
+            //     type_inference(&v.body, &mut hashmap);
+            // });
         }
 
         let document = match self.document_map.get(uri.as_str()) {
             Some(rope) => rope,
             None => return Ok(None),
         };
-        let inlay_hint_list = hashmap
-            .into_iter()
-            .map(|(k, v)| {
-                (
-                    k.start,
-                    k.end,
-                    match v {
-                        nrs_language_server::chumsky::Value::Null => "null".to_string(),
-                        nrs_language_server::chumsky::Value::Bool(_) => "bool".to_string(),
-                        nrs_language_server::chumsky::Value::Num(_) => "number".to_string(),
-                        nrs_language_server::chumsky::Value::Str(_) => "string".to_string(),
-                        nrs_language_server::chumsky::Value::List(_) => "[]".to_string(),
-                        nrs_language_server::chumsky::Value::Func(_) => v.to_string(),
-                    },
-                )
-            })
-            .filter_map(|item| {
-                // let start_position = offset_to_position(item.0, document)?;
-                let end_position = offset_to_position(item.1, &document)?;
-                let inlay_hint = InlayHint {
-                    text_edits: None,
-                    tooltip: None,
-                    kind: Some(InlayHintKind::TYPE),
-                    padding_left: None,
-                    padding_right: None,
-                    data: None,
-                    position: end_position,
-                    label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
-                        value: item.2,
-                        tooltip: None,
-                        location: Some(Location {
-                            uri: params.text_document.uri.clone(),
-                            range: Range {
-                                start: Position::new(0, 4),
-                                end: Position::new(0, 10),
-                            },
-                        }),
-                        command: None,
-                    }]),
-                };
-                Some(inlay_hint)
-            })
-            .collect::<Vec<_>>();
+        // let inlay_hint_list = hashmap
+        //     .into_iter()
+        //     .map(|(k, v)| {
+        //         (
+        //             k.start,
+        //             k.end,
+        //             match v {
+        //                 nrs_language_server::chumsky::Value::Null => "null".to_string(),
+        //                 nrs_language_server::chumsky::Value::Bool(_) => "bool".to_string(),
+        //                 nrs_language_server::chumsky::Value::Num(_) => "number".to_string(),
+        //                 nrs_language_server::chumsky::Value::Str(_) => "string".to_string(),
+        //                 nrs_language_server::chumsky::Value::List(_) => "[]".to_string(),
+        //                 nrs_language_server::chumsky::Value::Func(_) => v.to_string(),
+        //             },
+        //         )
+        //     })
+        //     .filter_map(|item| {
+        //         // let start_position = offset_to_position(item.0, document)?;
+        //         let end_position = offset_to_position(item.1, &document)?;
+        //         let inlay_hint = InlayHint {
+        //             text_edits: None,
+        //             tooltip: None,
+        //             kind: Some(InlayHintKind::TYPE),
+        //             padding_left: None,
+        //             padding_right: None,
+        //             data: None,
+        //             position: end_position,
+        //             label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
+        //                 value: item.2,
+        //                 tooltip: None,
+        //                 location: Some(Location {
+        //                     uri: params.text_document.uri.clone(),
+        //                     range: Range {
+        //                         start: Position::new(0, 4),
+        //                         end: Position::new(0, 10),
+        //                     },
+        //                 }),
+        //                 command: None,
+        //             }]),
+        //         };
+        //         Some(inlay_hint)
+        //     })
+        //     .collect::<Vec<_>>();
 
-        Ok(Some(inlay_hint_list))
+        Ok(None)
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        let uri = params.text_document_position.text_document.uri;
-        let position = params.text_document_position.position;
-        let completions = || -> Option<Vec<CompletionItem>> {
-            let rope = self.document_map.get(&uri.to_string())?;
-            let ast = self.ast_map.get(&uri.to_string())?;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            let completions = completion(&ast, offset);
-            let mut ret = Vec::with_capacity(completions.len());
-            for (_, item) in completions {
-                match item {
-                    nrs_language_server::completion::ImCompleteCompletionItem::Variable(var) => {
-                        ret.push(CompletionItem {
-                            label: var.clone(),
-                            insert_text: Some(var.clone()),
-                            kind: Some(CompletionItemKind::VARIABLE),
-                            detail: Some(var),
-                            ..Default::default()
-                        });
-                    }
-                    nrs_language_server::completion::ImCompleteCompletionItem::Function(
-                        name,
-                        args,
-                    ) => {
-                        ret.push(CompletionItem {
-                            label: name.clone(),
-                            kind: Some(CompletionItemKind::FUNCTION),
-                            detail: Some(name.clone()),
-                            insert_text: Some(format!(
-                                "{}({})",
-                                name,
-                                args.iter()
-                                    .enumerate()
-                                    .map(|(index, item)| { format!("${{{}:{}}}", index + 1, item) })
-                                    .collect::<Vec<_>>()
-                                    .join(",")
-                            )),
-                            insert_text_format: Some(InsertTextFormat::SNIPPET),
-                            ..Default::default()
-                        });
-                    }
-                }
-            }
-            Some(ret)
-        }();
-        Ok(completions.map(CompletionResponse::Array))
+        Ok(None)
+        // let uri = params.text_document_position.text_document.uri;
+        // let position = params.text_document_position.position;
+        // let completions = || -> Option<Vec<CompletionItem>> {
+        //     let rope = self.document_map.get(&uri.to_string())?;
+        //     let ast = self.ast_map.get(&uri.to_string())?;
+        //     let char = rope.try_line_to_char(position.line as usize).ok()?;
+        //     let offset = char + position.character as usize;
+        //     let completions = completion(&ast, offset);
+        //     let mut ret = Vec::with_capacity(completions.len());
+        //     for (_, item) in completions {
+        //         match item {
+        //             nrs_language_server::completion::ImCompleteCompletionItem::Variable(var) => {
+        //                 ret.push(CompletionItem {
+        //                     label: var.clone(),
+        //                     insert_text: Some(var.clone()),
+        //                     kind: Some(CompletionItemKind::VARIABLE),
+        //                     detail: Some(var),
+        //                     ..Default::default()
+        //                 });
+        //             }
+        //             nrs_language_server::completion::ImCompleteCompletionItem::Function(
+        //                 name,
+        //                 args,
+        //             ) => {
+        //                 ret.push(CompletionItem {
+        //                     label: name.clone(),
+        //                     kind: Some(CompletionItemKind::FUNCTION),
+        //                     detail: Some(name.clone()),
+        //                     insert_text: Some(format!(
+        //                         "{}({})",
+        //                         name,
+        //                         args.iter()
+        //                             .enumerate()
+        //                             .map(|(index, item)| { format!("${{{}:{}}}", index + 1, item) })
+        //                             .collect::<Vec<_>>()
+        //                             .join(",")
+        //                     )),
+        //                     insert_text_format: Some(InsertTextFormat::SNIPPET),
+        //                     ..Default::default()
+        //                 });
+        //             }
+        //         }
+        //     }
+        //     Some(ret)
+        // }();
+        // Ok(completions.map(CompletionResponse::Array))
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {

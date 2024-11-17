@@ -214,9 +214,19 @@ pub struct Func {
     pub span: Span,
 }
 
+pub type Identifier = Spanned<String>;
+
 #[derive(Debug)]
 pub enum FuncOrStruct {
     Func(Func),
+}
+
+impl FuncOrStruct {
+    pub fn name(&self) -> &Identifier {
+        match self {
+            FuncOrStruct::Func(func) => &func.name,
+        }
+    }
 }
 
 fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone {
@@ -420,7 +430,7 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
     })
 }
 
-pub fn funcs_parser(
+pub fn top_level_items_parser(
 ) -> impl Parser<Token, HashMap<String, FuncOrStruct>, Error = Simple<Token>> + Clone {
     let ident = filter_map(|span, tok| match tok {
         Token::Ident(ident) => Ok(ident),
@@ -517,7 +527,7 @@ pub fn type_inference(expr: &Spanned<Expr>, symbol_type_table: &mut HashMap<Span
 
 #[derive(Debug)]
 pub struct ParserResult {
-    pub ast: Option<HashMap<String, Func>>,
+    pub ast: Option<HashMap<String, FuncOrStruct>>,
     pub parse_errors: Vec<Simple<String>>,
     pub semantic_tokens: Vec<ImCompleteSemanticToken>,
 }
@@ -603,8 +613,8 @@ pub fn parse(src: &str) -> ParserResult {
             })
             .collect::<Vec<_>>();
         let len = src.chars().count();
-        let (ast, parse_errs) =
-            funcs_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
+        let (ast, parse_errs) = top_level_items_parser()
+            .parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
 
         (ast, parse_errs, semantic_tokens)
     } else {

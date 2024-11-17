@@ -3,61 +3,19 @@ use std::collections::HashMap;
 use chumsky::Span;
 use im_rc::Vector;
 
-
-use crate::chumsky::{Expr, Func, Spanned};
+use crate::chumsky::{Expr, Func, FuncOrStruct, Identifier, Spanned};
 #[derive(Debug, Clone)]
 pub enum ReferenceSymbol {
-    Founded(Spanned<String>),
+    Founded(Identifier),
     Founding(usize),
 }
 use ReferenceSymbol::*;
 pub fn get_reference(
-    ast: &HashMap<String, Func>,
+    ast: &HashMap<String, FuncOrStruct>,
     ident_offset: usize,
     include_self: bool,
 ) -> Vec<Spanned<String>> {
-    let mut vector = Vector::new();
-    let mut reference_list = vec![];
-    // for (_, v) in ast.iter() {
-    //     if v.name.1.end < ident_offset {
-    //         vector.push_back(v.name.clone());
-    //     }
-    // }
-    let mut kv_list = ast.iter().collect::<Vec<_>>();
-    kv_list.sort_by(|a, b| a.1.name.start().cmp(&b.1.name.start()));
-    let mut reference_symbol = ReferenceSymbol::Founding(ident_offset);
-    // let mut fn_vector = Vector::new();
-    for (_, v) in kv_list {
-        let (_, range) = &v.name;
-        if ident_offset >= range.start && ident_offset < range.end {
-            reference_symbol = ReferenceSymbol::Founded(v.name.clone());
-            if include_self {
-                reference_list.push(v.name.clone());
-            }
-        };
-        vector.push_back(v.name.clone());
-        let args = v
-            .args
-            .iter()
-            .map(|arg| {
-                if ident_offset >= arg.1.start && ident_offset < arg.1.end {
-                    reference_symbol = ReferenceSymbol::Founded(arg.clone());
-                    if include_self {
-                        reference_list.push(arg.clone());
-                    }
-                }
-                arg.clone()
-            })
-            .collect::<Vector<_>>();
-        get_reference_of_expr(
-            &v.body,
-            args + vector.clone(),
-            reference_symbol.clone(),
-            &mut reference_list,
-            include_self,
-        );
-    }
-    reference_list
+    vec![]
 }
 
 pub fn get_reference_of_expr(
