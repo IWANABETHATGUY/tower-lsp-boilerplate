@@ -2,7 +2,7 @@ use rust_lapper::{Interval, Lapper};
 use std::fmt::Display;
 
 use crate::{
-    chumsky::{Ast, Expr, Func},
+    nrs_lang::{Ast, Expr, Func},
     span::Span,
     symbol_table::{ReferenceId, SymbolId, SymbolTable},
 };

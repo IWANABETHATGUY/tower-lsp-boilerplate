@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use nrs_language_server::{
-    chumsky::{parse, ParserResult},
+    nrs_lang::{parse, ParserResult},
     semantic_analyze,
 };
 
