@@ -129,9 +129,9 @@ fn analyze_function(func: &Func, ctx: &mut Ctx) -> Result<()> {
 fn analyze_expr(expr: &Expr, ctx: &mut Ctx) -> Result<()> {
     match expr {
         Expr::Error => {}
-        Expr::Value(value) => {}
+        Expr::Value(_) => {}
         Expr::List(list) => {
-            for (i, item) in list.iter().enumerate() {
+            for item in list.iter() {
                 analyze_expr(&item.0, ctx)?;
             }
         }

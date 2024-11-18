@@ -1,6 +1,5 @@
 pub mod chumsky;
 pub mod completion;
-pub mod hir;
 pub mod jump_definition;
 pub mod reference;
 pub mod semantic_analyze;
