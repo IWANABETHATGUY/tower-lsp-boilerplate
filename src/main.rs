@@ -531,6 +531,7 @@ impl Backend {
                     self.semantic_map.insert(params.uri.to_string(), semantic);
                 }
                 Err(err) => {
+                    self.semantic_token_map.remove(&params.uri.to_string());
                     let span = err.span();
                     let start_position = offset_to_position(span.start, &rope);
                     let end_position = offset_to_position(span.end, &rope);
