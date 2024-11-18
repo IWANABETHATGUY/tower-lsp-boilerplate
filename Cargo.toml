@@ -19,5 +19,6 @@ im-rc = "15.0.0"
 oxc_index = "0.36.0"
 anyhow = "1.0.93"
 thiserror = "2.0.3"
+rust-lapper = "1.1.0"
 
 

@@ -3,11 +3,12 @@ use std::collections::HashMap;
 use dashmap::DashMap;
 use log::debug;
 use nrs_language_server::chumsky::{
-    parse, type_inference, Func, ImCompleteSemanticToken, ParserResult,
+    parse, type_inference, Ast, ImCompleteSemanticToken, ParserResult,
 };
 use nrs_language_server::completion::completion;
 use nrs_language_server::jump_definition::get_definition;
 use nrs_language_server::reference::get_reference;
+use nrs_language_server::semantic_analyze::{analyze_program, IdentType, Semantic};
 use nrs_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,8 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 #[derive(Debug)]
 struct Backend {
     client: Client,
-    ast_map: DashMap<String, HashMap<String, Func>>,
+    ast_map: DashMap<String, Ast>,
+    semantic_map: DashMap<String, Semantic>,
     document_map: DashMap<String, Rope>,
     semantic_token_map: DashMap<String, Vec<ImCompleteSemanticToken>>,
 }
@@ -127,21 +129,33 @@ impl LanguageServer for Backend {
     ) -> Result<Option<GotoDefinitionResponse>> {
         let definition = async {
             let uri = params.text_document_position_params.text_document.uri;
-            let ast = self.ast_map.get(uri.as_str())?;
+            let semantic = self.semantic_map.get(uri.as_str())?;
             let rope = self.document_map.get(uri.as_str())?;
-
             let position = params.text_document_position_params.position;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            // self.client.log_message(MessageType::INFO, &format!("{:#?}, {}", ast.value(), offset)).await;
-            let span = get_definition(&ast, offset);
-            span.and_then(|(_, range)| {
+            let offset = position_to_offset(position, &rope)?;
+
+            let interval = semantic.ident_range.find(offset, offset + 1).next()?;
+            let interval_val = interval.val;
+            let range = match interval_val {
+                IdentType::Binding(symbol_id) => {
+                    let span = &semantic.table.symbol_id_to_span[symbol_id];
+                    Some(span.clone())
+                }
+                IdentType::Reference(reference_id) => {
+                    let reference = semantic.table.reference_id_to_reference.get(reference_id)?;
+                    let symbol_id = reference.symbol_id?;
+                    let symbol_range = semantic.table.symbol_id_to_span.get(symbol_id)?;
+                    Some(symbol_range.clone())
+                }
+            };
+
+            range.and_then(|range| {
                 let start_position = offset_to_position(range.start, &rope)?;
                 let end_position = offset_to_position(range.end, &rope)?;
-
-                let range = Range::new(start_position, end_position);
-
-                Some(GotoDefinitionResponse::Scalar(Location::new(uri, range)))
+                Some(GotoDefinitionResponse::Scalar(Location::new(
+                    uri,
+                    Range::new(start_position, end_position),
+                )))
             })
         }
         .await;
@@ -507,6 +521,30 @@ impl Backend {
             .await;
 
         if let Some(ast) = ast {
+            let semantic = match analyze_program(&ast) {
+                Ok(semantic) => semantic,
+                Err(err) => {
+                    let span = err.span();
+                    let start_position = offset_to_position(span.start, &rope);
+                    let end_position = offset_to_position(span.end, &rope);
+                    let diag = start_position
+                        .and_then(|start| end_position.map(|end| (start, end)))
+                        .map(|(start, end)| {
+                            Diagnostic::new_simple(Range::new(start, end), format!("{:?}", err))
+                        });
+                    if let Some(diag) = diag {
+                        self.client
+                            .publish_diagnostics(
+                                params.uri.clone(),
+                                vec![diag],
+                                Some(params.version),
+                            )
+                            .await;
+                    }
+                    return;
+                }
+            };
+            self.semantic_map.insert(params.uri.to_string(), semantic);
             self.ast_map.insert(params.uri.to_string(), ast);
         }
         self.semantic_token_map
@@ -526,6 +564,7 @@ async fn main() {
         ast_map: DashMap::new(),
         document_map: DashMap::new(),
         semantic_token_map: DashMap::new(),
+        semantic_map: DashMap::new(),
     })
     .finish();
 
@@ -538,4 +577,10 @@ fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
     let first_char_of_line = rope.try_line_to_char(line).ok()?;
     let column = offset - first_char_of_line;
     Some(Position::new(line as u32, column as u32))
+}
+
+fn position_to_offset(position: Position, rope: &Rope) -> Option<usize> {
+    let line_char_offset = rope.try_line_to_char(position.line as usize).ok()?;
+    let slice = rope.slice(0..line_char_offset + position.character as usize);
+    Some(slice.len_bytes())
 }

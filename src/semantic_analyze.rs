@@ -1,13 +1,22 @@
+use rust_lapper::{Interval, Lapper};
 use std::fmt::Display;
 
 use crate::{
     chumsky::{Ast, Expr, Func},
     span::Span,
-    symbol_table::SymbolTable,
+    symbol_table::{ReferenceId, SymbolId, SymbolTable},
 };
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, SemanticError>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IdentType {
+    Binding(SymbolId),
+    Reference(ReferenceId),
+}
+type IdentRangeLapper = Lapper<usize, IdentType>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Number,
@@ -45,6 +54,23 @@ pub enum SemanticError {
     },
 }
 
+impl SemanticError {
+    pub fn span(&self) -> Span {
+        match self {
+            SemanticError::UndefinedVariable { span, .. } => span.clone(),
+            SemanticError::ImConsistentArrayType { span, .. } => span.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Semantic {
+    pub table: SymbolTable,
+    pub ident_range: IdentRangeLapper,
+}
+
+impl Semantic {}
+
 pub struct Function {
     pub name: String,
     pub params: Vec<Type>,
@@ -64,7 +90,7 @@ impl Ctx {
     }
 }
 
-pub fn analyze_program(ast: &Ast) -> Result<SymbolTable> {
+pub fn analyze_program(ast: &Ast) -> Result<Semantic> {
     let table = SymbolTable::default();
     let env = im_rc::Vector::new();
     let mut ctx = Ctx { env, table };
@@ -74,7 +100,26 @@ pub fn analyze_program(ast: &Ast) -> Result<SymbolTable> {
         ctx.table.add_symbol(func.name.1.clone());
         analyze_function(&func, &mut ctx)?;
     }
-    Ok(ctx.table)
+    let mut ident_range = IdentRangeLapper::new(vec![]);
+    for (symbol_id, range) in ctx.table.symbol_id_to_span.iter_enumerated() {
+        ident_range.insert(Interval {
+            start: range.start,
+            stop: range.end,
+            val: IdentType::Binding(symbol_id),
+        });
+    }
+    for (reference_id, reference) in ctx.table.reference_id_to_reference.iter_enumerated() {
+        let range = &reference.span;
+        ident_range.insert(Interval {
+            start: range.start,
+            stop: range.end,
+            val: IdentType::Reference(reference_id),
+        });
+    }
+    Ok(Semantic {
+        table: ctx.table,
+        ident_range,
+    })
 }
 
 fn analyze_function(func: &Func, ctx: &mut Ctx) -> Result<()> {
@@ -83,7 +128,7 @@ fn analyze_function(func: &Func, ctx: &mut Ctx) -> Result<()> {
 
 fn analyze_expr(expr: &Expr, ctx: &mut Ctx) -> Result<()> {
     match expr {
-        Expr::Error => todo!(),
+        Expr::Error => {}
         Expr::Value(value) => {}
         Expr::List(list) => {
             for (i, item) in list.iter().enumerate() {
@@ -118,7 +163,12 @@ fn analyze_expr(expr: &Expr, ctx: &mut Ctx) -> Result<()> {
             analyze_expr(&lhs.0, ctx)?;
             analyze_expr(&rhs.0, ctx)?;
         }
-        Expr::Call(_, _) => todo!(),
+        Expr::Call(callee, args) => {
+            analyze_expr(&callee.0, ctx)?;
+            for arg in args.0.iter() {
+                analyze_expr(&arg.0, ctx)?;
+            }
+        }
         Expr::If(cond, consequent, alternative) => {
             analyze_expr(&cond.0, ctx)?;
             analyze_expr(&consequent.0, ctx)?;
