@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::chumsky::{Expr, Func, Spanned};
+use crate::nrs_lang::{Expr, Func, Spanned};
 pub enum ImCompleteCompletionItem {
     Variable(String),
     Function(String, Vec<String>),

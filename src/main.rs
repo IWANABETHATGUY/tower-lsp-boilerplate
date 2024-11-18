@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use dashmap::DashMap;
 use log::debug;
-use nrs_language_server::chumsky::{
+use nrs_language_server::completion::completion;
+use nrs_language_server::nrs_lang::{
     parse, type_inference, Ast, ImCompleteSemanticToken, ParserResult,
 };
-use nrs_language_server::completion::completion;
 use nrs_language_server::semantic_analyze::{analyze_program, IdentType, Semantic};
 use nrs_language_server::semantic_token::LEGEND_TYPE;
 use nrs_language_server::span::Span;
@@ -315,10 +315,10 @@ impl LanguageServer for Backend {
                     k.start,
                     k.end,
                     match v {
-                        nrs_language_server::chumsky::Value::Null => "null".to_string(),
-                        nrs_language_server::chumsky::Value::Bool(_) => "bool".to_string(),
-                        nrs_language_server::chumsky::Value::Num(_) => "number".to_string(),
-                        nrs_language_server::chumsky::Value::Str(_) => "string".to_string(),
+                        nrs_language_server::nrs_lang::Value::Null => "null".to_string(),
+                        nrs_language_server::nrs_lang::Value::Bool(_) => "bool".to_string(),
+                        nrs_language_server::nrs_lang::Value::Num(_) => "number".to_string(),
+                        nrs_language_server::nrs_lang::Value::Str(_) => "string".to_string(),
                     },
                 )
             })

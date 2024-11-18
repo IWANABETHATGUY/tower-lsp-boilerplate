@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use tower_lsp::lsp_types::{SemanticTokenType};
+use tower_lsp::lsp_types::SemanticTokenType;
 
-use crate::chumsky::{Expr, Func, ImCompleteSemanticToken, Spanned};
+use crate::nrs_lang::{Expr, Func, ImCompleteSemanticToken, Spanned};
 
 pub const LEGEND_TYPE: &[SemanticTokenType] = &[
     SemanticTokenType::FUNCTION,
