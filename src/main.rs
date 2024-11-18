@@ -9,6 +9,7 @@ use nrs_language_server::completion::completion;
 use nrs_language_server::reference::get_reference;
 use nrs_language_server::semantic_analyze::{analyze_program, IdentType, Semantic};
 use nrs_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
+use nrs_language_server::span::Span;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -163,16 +164,31 @@ impl LanguageServer for Backend {
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
         let reference_list = || -> Option<Vec<Location>> {
             let uri = params.text_document_position.text_document.uri;
-            let ast = self.ast_map.get(&uri.to_string())?;
-            let rope = self.document_map.get(&uri.to_string())?;
-
+            let semantic = self.semantic_map.get(uri.as_str())?;
+            let rope = self.document_map.get(uri.as_str())?;
             let position = params.text_document_position.position;
-            let char = rope.try_line_to_char(position.line as usize).ok()?;
-            let offset = char + position.character as usize;
-            let reference_list = get_reference(&ast, offset, false);
-            let ret = reference_list
+            let offset = position_to_offset(position, &rope)?;
+
+            let interval = semantic.ident_range.find(offset, offset + 1).next()?;
+            let interval_val = interval.val;
+            let reference_span_list = match interval_val {
+                IdentType::Binding(symbol_id) => {
+                    let references = semantic.table.symbol_id_to_references.get(&symbol_id)?;
+                    let reference_span_list: Vec<Span> = references
+                        .iter()
+                        .map(|reference_id| {
+                            semantic.table.reference_id_to_reference[*reference_id]
+                                .span
+                                .clone()
+                        })
+                        .collect();
+                    Some(reference_span_list)
+                }
+                IdentType::Reference(_) => None,
+            }?;
+            let ret = reference_span_list
                 .into_iter()
-                .filter_map(|(_, range)| {
+                .filter_map(|range| {
                     let start_position = offset_to_position(range.start, &rope)?;
                     let end_position = offset_to_position(range.end, &rope)?;
 
