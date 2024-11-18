@@ -33,7 +33,7 @@ pub enum Token {
     Else,
 }
 
-pub type Ast = HashMap<String, Func>;
+pub type Ast = Vec<Spanned<Func>>;
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -404,7 +404,7 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
     })
 }
 
-pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simple<Token>> + Clone {
+pub fn funcs_parser() -> impl Parser<Token, Vec<Spanned<Func>>, Error = Simple<Token>> + Clone {
     let ident = filter_map(|span, tok| match tok {
         Token::Ident(ident) => Ok(ident),
         _ => Err(Simple::expected_input_found(span, Vec::new(), Some(tok))),
@@ -454,16 +454,10 @@ pub fn funcs_parser() -> impl Parser<Token, HashMap<String, Func>, Error = Simpl
 
     func.repeated()
         .try_map(|fs, _| {
-            let mut funcs = HashMap::new();
-            for ((name, name_span), f) in fs {
-                if funcs.insert(name.clone(), f).is_some() {
-                    return Err(Simple::custom(
-                        name_span,
-                        format!("Function '{}' already exists", name),
-                    ));
-                }
-            }
-            Ok(funcs)
+            Ok(fs
+                .into_iter()
+                .map(|item| (item.1, item.0 .1))
+                .collect::<Vec<_>>())
         })
         .then_ignore(end())
 }
@@ -500,7 +494,7 @@ pub fn type_inference(expr: &Spanned<Expr>, symbol_type_table: &mut HashMap<Span
 
 #[derive(Debug)]
 pub struct ParserResult {
-    pub ast: Option<HashMap<String, Func>>,
+    pub ast: Option<Vec<Spanned<Func>>>,
     pub parse_errors: Vec<Simple<String>>,
     pub semantic_tokens: Vec<ImCompleteSemanticToken>,
 }
