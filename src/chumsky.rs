@@ -383,11 +383,7 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
                 let span = a.1.start..b.1.end;
                 (Expr::Then(Box::new(a), Box::new(b)), span)
             });
-        let a = 10;
 
-        if a == 10 {
-        } else {
-        }
         block_chain
             // Expressions, chained by semicolons, are statements
             .or(raw_expr.clone())

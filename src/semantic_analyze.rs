@@ -98,7 +98,7 @@ pub fn analyze_program(ast: &Ast) -> Result<Semantic> {
         let name = func.name.0.clone();
         ctx.env.push_back((name, func.name.1.clone()));
         ctx.table.add_symbol(func.name.1.clone());
-        analyze_function(&func, &mut ctx)?;
+        analyze_function(func, &mut ctx)?;
     }
     let mut ident_range = IdentRangeLapper::new(vec![]);
     for (symbol_id, range) in ctx.table.symbol_id_to_span.iter_enumerated() {
@@ -156,7 +156,7 @@ fn analyze_expr(expr: &Expr, ctx: &mut Ctx) -> Result<()> {
             ctx.env.pop_back();
         }
         Expr::Then(first, second) => {
-            let _ = analyze_expr(&first.0, ctx)?;
+            analyze_expr(&first.0, ctx)?;
             analyze_expr(&second.0, ctx)?
         }
         Expr::Binary(lhs, _, rhs) => {

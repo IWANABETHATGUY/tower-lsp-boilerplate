@@ -6,7 +6,6 @@ use nrs_language_server::chumsky::{
     parse, type_inference, Ast, ImCompleteSemanticToken, ParserResult,
 };
 use nrs_language_server::completion::completion;
-use nrs_language_server::jump_definition::get_definition;
 use nrs_language_server::reference::get_reference;
 use nrs_language_server::semantic_analyze::{analyze_program, IdentType, Semantic};
 use nrs_language_server::semantic_token::{semantic_token_from_ast, LEGEND_TYPE};
@@ -474,7 +473,7 @@ impl Backend {
             ast,
             parse_errors,
             semantic_tokens,
-        } = parse(&params.text);
+        } = parse(params.text);
         let diagnostics = parse_errors
             .into_iter()
             .filter_map(|item| {

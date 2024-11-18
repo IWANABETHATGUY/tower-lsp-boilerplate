@@ -48,7 +48,7 @@ impl SymbolTable {
         if let Some(symbol_id) = symbol_id {
             self.symbol_id_to_references
                 .entry(symbol_id)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(reference_id);
         }
     }
