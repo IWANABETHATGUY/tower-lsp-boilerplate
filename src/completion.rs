@@ -7,33 +7,37 @@ pub enum ImCompleteCompletionItem {
 }
 /// return (need_to_continue_search, founded reference)
 pub fn completion(
-    ast: &HashMap<String, Func>,
+    ast: &[Spanned<Func>],
     ident_offset: usize,
 ) -> HashMap<String, ImCompleteCompletionItem> {
     let mut map = HashMap::new();
-    for (_, v) in ast.iter() {
-        if v.name.1.end < ident_offset {
+    for (func, _) in ast.iter() {
+        if func.name.1.end < ident_offset {
             map.insert(
-                v.name.0.clone(),
+                func.name.0.clone(),
                 ImCompleteCompletionItem::Function(
-                    v.name.0.clone(),
-                    v.args.clone().into_iter().map(|(name, _)| name).collect(),
+                    func.name.0.clone(),
+                    func.args
+                        .clone()
+                        .into_iter()
+                        .map(|(name, _)| name)
+                        .collect(),
                 ),
             );
         }
     }
 
     // collect params variable
-    for (_, v) in ast.iter() {
-        if v.span.end > ident_offset && v.span.start < ident_offset {
+    for (func, _) in ast.iter() {
+        if func.span.end > ident_offset && func.span.start < ident_offset {
             // log::debug!("this is completion from body {}", name);
-            v.args.iter().for_each(|(item, _)| {
+            func.args.iter().for_each(|(item, _)| {
                 map.insert(
                     item.clone(),
                     ImCompleteCompletionItem::Variable(item.clone()),
                 );
             });
-            get_completion_of(&v.body, &mut map, ident_offset);
+            get_completion_of(&func.body, &mut map, ident_offset);
         }
     }
     map

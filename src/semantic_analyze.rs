@@ -76,6 +76,7 @@ pub struct Function {
     pub params: Vec<Type>,
 }
 
+#[derive(Debug)]
 pub struct Ctx {
     env: im_rc::Vector<(String, Span)>,
     table: SymbolTable,
@@ -94,7 +95,7 @@ pub fn analyze_program(ast: &Ast) -> Result<Semantic> {
     let table = SymbolTable::default();
     let env = im_rc::Vector::new();
     let mut ctx = Ctx { env, table };
-    for (_, func) in ast.iter() {
+    for (func, _) in ast.iter() {
         let name = func.name.0.clone();
         ctx.env.push_back((name, func.name.1.clone()));
         ctx.table.add_symbol(func.name.1.clone());
@@ -139,10 +140,11 @@ fn analyze_expr(expr: &Expr, ctx: &mut Ctx) -> Result<()> {
             let span = match ctx.find_symbol(&name.0) {
                 Some(ty) => ty,
                 None => {
+                    dbg!(&ctx);
                     return Err(SemanticError::UndefinedVariable {
                         name: name.0.clone(),
                         span: name.1.clone(),
-                    })
+                    });
                 }
             };
             let symbol_id = *ctx.table.span_to_symbol_id.get(&span).unwrap();
