@@ -13,6 +13,7 @@ oxc_index::define_index_type! {
     pub struct ReferenceId = u32;
     IMPL_RAW_CONVERSIONS = true;
 }
+
 pub type SymbolIdToSpan = IndexVec<SymbolId, Span>;
 
 pub type ReferenceIdToReference = IndexVec<ReferenceId, Reference>;
