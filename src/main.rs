@@ -426,8 +426,7 @@ impl LanguageServer for Backend {
                     .collect::<Vec<_>>();
                 let mut map = HashMap::new();
                 map.insert(uri, edit_list);
-                let workspace_edit = WorkspaceEdit::new(map);
-                workspace_edit
+                WorkspaceEdit::new(map)
             })
         }();
         Ok(workspace_edit)
