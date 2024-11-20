@@ -2,7 +2,7 @@ use rust_lapper::{Interval, Lapper};
 use std::fmt::Display;
 
 use crate::{
-    nrs_lang::{Ast, Expr, Func},
+    nrs_lang::{Ast, Expr, FuncOrStruct},
     span::Span,
     symbol_table::{ReferenceId, SymbolId, SymbolTable},
 };
@@ -96,10 +96,10 @@ pub fn analyze_program(ast: &Ast) -> Result<Semantic> {
     let env = im_rc::Vector::new();
     let mut ctx = Ctx { env, table };
     for (func, _) in ast.iter() {
-        let name = func.name.0.clone();
-        ctx.env.push_back((name, func.name.1.clone()));
-        ctx.table.add_symbol(func.name.1.clone());
-        analyze_function(func, &mut ctx)?;
+        let name = func.name().0.clone();
+        ctx.env.push_back((name, func.name().1.clone()));
+        ctx.table.add_symbol(func.name().1.clone());
+        analyze_top_level_item(func, &mut ctx)?;
     }
     let mut ident_range = IdentRangeLapper::new(vec![]);
     for (symbol_id, range) in ctx.table.symbol_id_to_span.iter_enumerated() {
@@ -123,8 +123,10 @@ pub fn analyze_program(ast: &Ast) -> Result<Semantic> {
     })
 }
 
-fn analyze_function(func: &Func, ctx: &mut Ctx) -> Result<()> {
-    analyze_expr(&func.body.0, ctx)
+fn analyze_top_level_item(item: &FuncOrStruct, ctx: &mut Ctx) -> Result<()> {
+    match item {
+        FuncOrStruct::Func(func) => analyze_expr(&func.body.0, ctx),
+    }
 }
 
 fn analyze_expr(expr: &Expr, ctx: &mut Ctx) -> Result<()> {

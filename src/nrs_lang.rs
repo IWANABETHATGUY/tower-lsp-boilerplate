@@ -31,9 +31,10 @@ pub enum Token {
     Print,
     If,
     Else,
+    Struct,
 }
 
-pub type Ast = Vec<Spanned<Func>>;
+pub type Ast = Vec<Spanned<FuncOrStruct>>;
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -50,6 +51,7 @@ impl fmt::Display for Token {
             Token::Print => write!(f, "print"),
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),
+            Token::Struct => write!(f, "struct"),
         }
     }
 }
@@ -190,6 +192,21 @@ impl Expr {
             Some(v)
         } else {
             None
+        }
+    }
+}
+
+pub type Identifier = Spanned<String>;
+
+#[derive(Debug)]
+pub enum FuncOrStruct {
+    Func(Func),
+}
+
+impl FuncOrStruct {
+    pub fn name(&self) -> &Identifier {
+        match self {
+            FuncOrStruct::Func(func) => &func.name,
         }
     }
 }
@@ -404,7 +421,8 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
     })
 }
 
-pub fn funcs_parser() -> impl Parser<Token, Vec<Spanned<Func>>, Error = Simple<Token>> + Clone {
+pub fn funcs_parser(
+) -> impl Parser<Token, Vec<Spanned<FuncOrStruct>>, Error = Simple<Token>> + Clone {
     let ident = filter_map(|span, tok| match tok {
         Token::Ident(ident) => Ok(ident),
         _ => Err(Simple::expected_input_found(span, Vec::new(), Some(tok))),
@@ -442,12 +460,12 @@ pub fn funcs_parser() -> impl Parser<Token, Vec<Spanned<Func>>, Error = Simple<T
         .map_with_span(|((name, args), body), span| {
             (
                 name.clone(),
-                Func {
+                FuncOrStruct::Func(Func {
                     args,
                     body,
                     name,
                     span,
-                },
+                }),
             )
         })
         .labelled("function");
@@ -494,7 +512,7 @@ pub fn type_inference(expr: &Spanned<Expr>, symbol_type_table: &mut HashMap<Span
 
 #[derive(Debug)]
 pub struct ParserResult {
-    pub ast: Option<Vec<Spanned<Func>>>,
+    pub ast: Option<Vec<Spanned<FuncOrStruct>>>,
     pub parse_errors: Vec<Simple<String>>,
     pub semantic_tokens: Vec<ImCompleteSemanticToken>,
 }
@@ -576,6 +594,7 @@ pub fn parse(src: &str) -> ParserResult {
                         .position(|item| item == &SemanticTokenType::KEYWORD)
                         .unwrap(),
                 }),
+                Token::Struct => None,
             })
             .collect::<Vec<_>>();
         let len = src.chars().count();

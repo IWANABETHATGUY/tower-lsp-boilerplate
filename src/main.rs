@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use log::debug;
 use nrs_language_server::completion::completion;
 use nrs_language_server::nrs_lang::{
-    parse, type_inference, Ast, ImCompleteSemanticToken, ParserResult,
+    parse, type_inference, Ast, FuncOrStruct, ImCompleteSemanticToken, ParserResult,
 };
 use nrs_language_server::semantic_analyze::{analyze_program, IdentType, Semantic};
 use nrs_language_server::semantic_token::LEGEND_TYPE;
@@ -299,8 +299,10 @@ impl LanguageServer for Backend {
         let uri = &params.text_document.uri;
         let mut hashmap = HashMap::new();
         if let Some(ast) = self.ast_map.get(uri.as_str()) {
-            ast.iter().for_each(|(func, _)| {
-                type_inference(&func.body, &mut hashmap);
+            ast.iter().for_each(|(func, _)| match func {
+                FuncOrStruct::Func(func) => {
+                    type_inference(&func.body, &mut hashmap);
+                }
             });
         }
 

@@ -1,43 +1,51 @@
 use std::collections::HashMap;
 
-use crate::nrs_lang::{Expr, Func, Spanned};
+use crate::nrs_lang::{Expr, FuncOrStruct, Spanned};
 pub enum ImCompleteCompletionItem {
     Variable(String),
     Function(String, Vec<String>),
 }
 /// return (need_to_continue_search, founded reference)
 pub fn completion(
-    ast: &[Spanned<Func>],
+    ast: &[Spanned<FuncOrStruct>],
     ident_offset: usize,
 ) -> HashMap<String, ImCompleteCompletionItem> {
     let mut map = HashMap::new();
     for (func, _) in ast.iter() {
-        if func.name.1.end < ident_offset {
-            map.insert(
-                func.name.0.clone(),
-                ImCompleteCompletionItem::Function(
-                    func.name.0.clone(),
-                    func.args
-                        .clone()
-                        .into_iter()
-                        .map(|(name, _)| name)
-                        .collect(),
-                ),
-            );
+        match func {
+            FuncOrStruct::Func(func) => {
+                if func.name.1.end < ident_offset {
+                    map.insert(
+                        func.name.0.clone(),
+                        ImCompleteCompletionItem::Function(
+                            func.name.0.clone(),
+                            func.args
+                                .clone()
+                                .into_iter()
+                                .map(|(name, _)| name)
+                                .collect(),
+                        ),
+                    );
+                }
+            }
         }
     }
 
     // collect params variable
     for (func, _) in ast.iter() {
-        if func.span.end > ident_offset && func.span.start < ident_offset {
-            // log::debug!("this is completion from body {}", name);
-            func.args.iter().for_each(|(item, _)| {
-                map.insert(
-                    item.clone(),
-                    ImCompleteCompletionItem::Variable(item.clone()),
-                );
-            });
-            get_completion_of(&func.body, &mut map, ident_offset);
+        match func {
+            FuncOrStruct::Func(func) => {
+                if func.span.end > ident_offset && func.span.start < ident_offset {
+                    // log::debug!("this is completion from body {}", name);
+                    func.args.iter().for_each(|(item, _)| {
+                        map.insert(
+                            item.clone(),
+                            ImCompleteCompletionItem::Variable(item.clone()),
+                        );
+                    });
+                    get_completion_of(&func.body, &mut map, ident_offset);
+                }
+            }
         }
     }
     map
