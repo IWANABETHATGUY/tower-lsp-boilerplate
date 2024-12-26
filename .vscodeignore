@@ -6,3 +6,10 @@ tsconfig.json
 webpack.config.js
 client/**
 target
+Cargo.lock
+.github
+.cargo
+examples/
+justfile
+rust-toolchains.toml
+
