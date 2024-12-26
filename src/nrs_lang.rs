@@ -32,6 +32,8 @@ pub enum Token {
     If,
     Else,
     Struct,
+    String,
+    Number,
 }
 
 pub type Ast = Vec<Spanned<FuncOrStruct>>;
@@ -52,6 +54,8 @@ impl fmt::Display for Token {
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),
             Token::Struct => write!(f, "struct"),
+            Token::String => write!(f, "string"),
+            Token::Number => write!(f, "number"),
         }
     }
 }
@@ -90,6 +94,9 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "true" => Token::Bool(true),
         "false" => Token::Bool(false),
         "null" => Token::Null,
+        "struct" => Token::Struct,
+        "String" => Token::String,
+        "Number" => Token::Number,
         _ => Token::Ident(ident),
     });
 
@@ -201,6 +208,7 @@ pub type Identifier = Spanned<String>;
 #[derive(Debug)]
 pub enum FuncOrStruct {
     Func(Func),
+    Struct(Struct),
 }
 
 impl FuncOrStruct {
@@ -216,6 +224,14 @@ impl FuncOrStruct {
 pub struct Func {
     pub args: Vec<Spanned<String>>,
     pub body: Spanned<Expr>,
+    pub name: Spanned<String>,
+    pub span: Span,
+}
+
+// A function node in the AST.
+#[derive(Debug)]
+pub struct Struct {
+    pub members: Vec<(Identifier, Token)>,
     pub name: Spanned<String>,
     pub span: Span,
 }
@@ -421,7 +437,7 @@ fn expr_parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + C
     })
 }
 
-pub fn funcs_parser(
+pub fn top_level_items_parser(
 ) -> impl Parser<Token, Vec<Spanned<FuncOrStruct>>, Error = Simple<Token>> + Clone {
     let ident = filter_map(|span, tok| match tok {
         Token::Ident(ident) => Ok(ident),
@@ -442,7 +458,7 @@ pub fn funcs_parser(
                 .map_with_span(|name, span| (name, span))
                 .labelled("function name"),
         )
-        .then(args)
+        .then(args.clone())
         .then(
             expr_parser()
                 .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}')))
@@ -469,6 +485,28 @@ pub fn funcs_parser(
             )
         })
         .labelled("function");
+    let struct_member = ident
+        .map_with_span(|name, span| (name, span))
+        .then_ignore(just(Token::Op(":".to_string())))
+        .then(just(Token::String).or(just(Token::Number)))
+        .map_with_span(|(name, expr), span| (name, expr, span));
+
+    let _struct = just(Token::Struct)
+        .ignore_then(
+            ident
+                .map_with_span(|name, span| (name, span))
+                .labelled("struct name"),
+        )
+        .then(
+            struct_member
+                .repeated()
+                .separated_by(just(Token::Ctrl(',')))
+                .allow_trailing()
+                .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}')))
+                .labelled("struct members"),
+        )
+        .map_with_span(|((name, members), body), span| ())
+        .labelled("struct");
 
     func.repeated()
         .try_map(|fs, _| {
@@ -595,11 +633,13 @@ pub fn parse(src: &str) -> ParserResult {
                         .unwrap(),
                 }),
                 Token::Struct => None,
+                Token::String => None,
+                Token::Number => None,
             })
             .collect::<Vec<_>>();
         let len = src.chars().count();
-        let (ast, parse_errs) =
-            funcs_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
+        let (ast, parse_errs) = top_level_items_parser()
+            .parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
 
         (ast, parse_errs, semantic_tokens)
     } else {
