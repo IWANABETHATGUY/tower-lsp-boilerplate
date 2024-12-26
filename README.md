@@ -54,7 +54,7 @@ This repo is a template for `tower-lsp`, a useful github project template which 
 4. `code --install-extension nrs-language-server-${version}.vsix`, the `version` you could inspect in file system.
 5. Restart the `VsCode`, and write a minimal `nano rust` file, then inspect the effect.
 
-For other editor, please refer the related manual, you could skip the `VsCode` part.
+For other editor, please refer the related manual, you could skip steps above.
 
 
 ## Features
