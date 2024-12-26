@@ -2,6 +2,8 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
+import * as fs from 'fs';
+import * as os from 'os';
 
 import {
   languages,
@@ -34,10 +36,12 @@ import {
 let client: LanguageClient;
 // type a = Parameters<>;
 
+
 export async function activate(context: ExtensionContext) {
 
   const traceOutputChannel = window.createOutputChannel("Nrs Language Server trace");
-  const command = process.env.SERVER_PATH || "nrs-language-server";
+  
+  const command = getLspPath(context) || process.env.SERVER_PATH || "nrs-language-server";
   const run: Executable = {
     command,
     options: {
@@ -154,4 +158,19 @@ export function activateInlayHints(ctx: ExtensionContext) {
   workspace.onDidChangeTextDocument(maybeUpdater.onDidChangeTextDocument, maybeUpdater, ctx.subscriptions);
 
   maybeUpdater.onConfigChange().catch(console.error);
+}
+
+function getLspPath(context: ExtensionContext): string | undefined {
+  const suffix = os.platform() === 'win32' ? '.exe' : '';
+  const debugPath = context.asAbsolutePath('../target/debug/nrs-language-server' + suffix);
+  const releasePath = context.asAbsolutePath('../target/release/nrs-language-server' + suffix);
+    
+  if (fs.existsSync(releasePath)) {
+    return releasePath;
+  }
+
+  if (fs.existsSync(debugPath)) {
+    return debugPath;
+  }
+  return undefined;
 }
