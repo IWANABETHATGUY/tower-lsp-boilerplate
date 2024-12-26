@@ -19,5 +19,5 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run lint
-      run: cargo clippy --workspace --all-targets -- --deny warnings
+      run: cargo lint
 

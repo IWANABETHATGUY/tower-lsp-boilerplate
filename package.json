@@ -69,6 +69,7 @@
     "@types/node": "^12.12.0",
     "@typescript-eslint/eslint-plugin": "^3.8.0",
     "@typescript-eslint/parser": "^3.8.0",
+    "@vscode/vsce": "^3.2.1",
     "cross-env": "^7.0.2",
     "electron-rebuild": "^1.11.0",
     "eslint": "^7.6.0",
