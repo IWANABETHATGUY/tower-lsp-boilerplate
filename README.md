@@ -1,17 +1,8 @@
 # boilerplate for a  rust language server powered by `tower-lsp` 
-## Introduction
-This repo is a template for `tower-lsp`, a useful github project template which makes writing new language servers easier.
-## Development using VSCode
-1. `pnpm i`
-2. `cargo build`
-3. Open the project in VSCode: `code .`
-4. In VSCode, press <kbd>F5</kbd> or change to the Debug panel and click <kbd>Launch Client</kbd>.
-5. In the newly launched VSCode instance, open the file `examples/test.nrs` from this project.
-6. If the LSP is working correctly you should see syntax highlighting and the features described below should work.
+
 > [!note]
-> 
-> If encountered errors like `Cannot find module '/xxx/xxx/dist/extension.js'`
-> please try run command `tsc -b` manually, you could refer https://github.com/IWANABETHATGUY/tower-lsp-boilerplate/issues/6 for more details
+> This repo use a language which is a very small subset of `rust` called `nano rust`
+
 ## A valid program in nano rust 
 ```rust
 fn factorial(x) {
@@ -42,6 +33,30 @@ fn main() {
     }
 }
 ```
+## Introduction
+This repo is a template for `tower-lsp`, a useful github project template which makes writing new language servers easier.
+## Development using VSCode
+1. `pnpm i`
+2. `cargo build`
+3. Open the project in VSCode: `code .`
+4. In VSCode, press <kbd>F5</kbd> or change to the Debug panel and click <kbd>Launch Client</kbd>.
+5. In the newly launched VSCode instance, open the file `examples/test.nrs` from this project.
+6. If the LSP is working correctly you should see syntax highlighting and the features described below should work.
+
+> [!note]
+> If encountered errors like `Cannot find module '/xxx/xxx/dist/extension.js'`
+> please try run command `tsc -b` manually, you could refer https://github.com/IWANABETHATGUY/tower-lsp-boilerplate/issues/6 for more details
+
+### Preview and test extension locally with `VsCode`
+1. Make sure all dependency are installed.
+2. Make sure the `nrs-language-server` is under your `PATH`
+3. `pnpm run package`
+4. `code --install-extension nrs-language-server-${version}.vsix`, the `version` you could inspect in file system.
+5. Restart the `VsCode`, and write a minimal `nano rust` file, then inspect the effect.
+
+For other editor, please refer the related manual, you could skip the `VsCode` part.
+
+
 ## Features
 This repo use a language `nano rust` which first introduced by [ chumsky ](https://github.com/zesterer/chumsky/blob/master/examples/nano_rust.rs). Most common language feature has been implemented, you could preview via the video below.
 
