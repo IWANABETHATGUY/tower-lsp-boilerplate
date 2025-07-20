@@ -14,12 +14,12 @@ fn main() -> anyhow::Result<()> {
         parse_errors,
         semantic_tokens: _,
     } = parse(source);
-    println!("{:?}", parse_errors);
+    println!("{parse_errors:?}");
     let ast = if let Some(ref ast) = ast {
-        println!("{:#?}", ast);
+        println!("{ast:#?}");
         ast
     } else {
-        println!("{:?}", parse_errors);
+        println!("{parse_errors:?}");
         return Ok(());
     };
     let table = semantic_analyze::analyze_program(ast)?;

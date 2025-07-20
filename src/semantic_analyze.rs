@@ -36,7 +36,7 @@ impl Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Null => write!(f, "null"),
             Type::Function => write!(f, "function"),
-            Type::List(ty) => write!(f, "list<{}>", ty),
+            Type::List(ty) => write!(f, "list<{ty}>"),
             Type::Unknown => write!(f, "unknown"),
         }
     }
