@@ -489,7 +489,7 @@ impl Backend {
             .filter_map(|item| {
                 let (message, span) = match item.reason() {
                     chumsky::error::SimpleReason::Unclosed { span, delimiter } => {
-                        (format!("Unclosed delimiter {}", delimiter), span.clone())
+                        (format!("Unclosed delimiter {delimiter}"), span.clone())
                     }
                     chumsky::error::SimpleReason::Unexpected => (
                         format!(
@@ -538,7 +538,7 @@ impl Backend {
                     let diag = start_position
                         .and_then(|start| end_position.map(|end| (start, end)))
                         .map(|(start, end)| {
-                            Diagnostic::new_simple(Range::new(start, end), format!("{:?}", err))
+                            Diagnostic::new_simple(Range::new(start, end), format!("{err:?}"))
                         });
                     if let Some(diag) = diag {
                         diagnostics.push(diag);
