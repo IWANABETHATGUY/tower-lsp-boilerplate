@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
-use chumsky::primitive::End;
 use dashmap::DashMap;
-use lext_lang::{get_ast_and_semantic, ParseResult, Program};
+use lext_lang::{compile, CompileResult,  Program};
+use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,7 +14,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 struct Backend {
     client: Client,
     document_map: DashMap<String, Rope>,
-    semanticast_map: DashMap<String, ParseResult>,
+    semanticast_map: DashMap<String, CompileResult>,
 }
 
 #[tower_lsp::async_trait]
@@ -136,41 +134,10 @@ impl LanguageServer for Backend {
 
     async fn goto_definition(
         &self,
-        _params: GotoDefinitionParams,
+        params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        // let definition = || -> Option<GotoDefinitionResponse> {
-        //     let uri = params.text_document_position_params.text_document.uri;
-        //     let semantic = self.semantic_map.get(uri.as_str())?;
-        //     let rope = self.document_map.get(uri.as_str())?;
-        //     let position = params.text_document_position_params.position;
-        //     let offset = position_to_offset(position, &rope)?;
-
-        //     let interval = semantic.ident_range.find(offset, offset + 1).next()?;
-        //     let interval_val = interval.val;
-        //     let range = match interval_val {
-        //         IdentType::Binding(symbol_id) => {
-        //             let span = &semantic.table.symbol_id_to_span[symbol_id];
-        //             Some(span.clone())
-        //         }
-        //         IdentType::Reference(reference_id) => {
-        //             let reference = semantic.table.reference_id_to_reference.get(reference_id)?;
-        //             let symbol_id = reference.symbol_id?;
-        //             let symbol_range = semantic.table.symbol_id_to_span.get(symbol_id)?;
-        //             Some(symbol_range.clone())
-        //         }
-        //     };
-
-        //     range.and_then(|range| {
-        //         let start_position = offset_to_position(range.start, &rope)?;
-        //         let end_position = offset_to_position(range.end, &rope)?;
-        //         Some(GotoDefinitionResponse::Scalar(Location::new(
-        //             uri,
-        //             Range::new(start_position, end_position),
-        //         )))
-        //     })
-        // }();
-        // Ok(definition)
-        Ok(None)
+        let definition = self.get_definition(params);
+        Ok(definition)
     }
 
     async fn references(&self, _params: ReferenceParams) -> Result<Option<Vec<Location>>> {
@@ -435,7 +402,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change_configuration(&self, _: DidChangeConfigurationParams) {
-        // debug!("configuration changed!");
+        debug!("configuration changed!");
     }
 
     async fn did_change_workspace_folders(&self, _: DidChangeWorkspaceFoldersParams) {
@@ -490,10 +457,27 @@ async fn main() {
 }
 
 impl Backend {
+    fn get_definition(&self, params: GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
+        let uri = params.text_document_position_params.text_document.uri.to_string();
+        let position = params.text_document_position_params.position;
+        
+        let rope = self.document_map.get(&uri)?;
+        let compilation_result = self.semanticast_map.get(&uri)?;
+        let offset = position_to_offset(position, &rope)?;
+        let ref_id = compilation_result.semantic.span_to_reference.find(offset, offset+ 1).next()?.val;
+        let symbol_id = compilation_result.semantic.references[ref_id]?;
+        let symbol_span = compilation_result.semantic.get_symbol_span(symbol_id);
+        let start = offset_to_position(symbol_span.start, &rope)?;
+        let end = offset_to_position(symbol_span.end, &rope)?;
+        let location = Location::new(params.text_document_position_params.text_document.uri, Range::new(start, end));
+        
+        Some(GotoDefinitionResponse::Scalar(location))
+    }
+
     async fn on_change(&self, item: TextDocumentChange<'_>) {
         let rope = Rope::from_str(item.text);
-        let parse_result = get_ast_and_semantic(item.text);
-        let diagnostics= parse_result
+        let compile_result = compile(item.text);
+        let diagnostics= compile_result
             .diagnostics
             .iter()
             .map(|d| {
@@ -517,14 +501,12 @@ impl Backend {
             .flatten()
             .collect::<Vec<_>>();
 
-        if !diagnostics.is_empty() {
             let uri = Url::parse(&item.uri)
                 .unwrap_or_else(|_| Url::from_directory_path(&item.uri).unwrap());
             self.client
                 .publish_diagnostics(uri, diagnostics, None)
                 .await;
-        }
-        self.semanticast_map.insert(item.uri.clone(), parse_result);
+        self.semanticast_map.insert(item.uri.clone(), compile_result);
         self.document_map.insert(item.uri.clone(), rope);
     }
 }

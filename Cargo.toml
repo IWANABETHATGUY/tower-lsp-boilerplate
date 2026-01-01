@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 lext-lang = {  path = "E:/Documents/vscode/lelwel_nrs" }
-chumsky = "0.9.3"
 env_logger = "0.11.5"
 ropey = "1.5.0"
 serde_json = "1.0.78"
