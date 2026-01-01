@@ -136,30 +136,11 @@ impl LanguageServer for Backend {
         Ok(definition)
     }
 
-    async fn references(&self, _params: ReferenceParams) -> Result<Option<Vec<Location>>> {
-        // let reference_list = || -> Option<Vec<Location>> {
-        //     let uri = params.text_document_position.text_document.uri;
-        //     let semantic = self.semantic_map.get(uri.as_str())?;
-        //     let rope = self.document_map.get(uri.as_str())?;
-        //     let position = params.text_document_position.position;
-        //     let offset = position_to_offset(position, &rope)?;
-        //     let reference_span_list = get_references(&semantic, offset, offset + 1, false)?;
-
-        //     let ret = reference_span_list
-        //         .into_iter()
-        //         .filter_map(|range| {
-        //             let start_position = offset_to_position(range.start, &rope)?;
-        //             let end_position = offset_to_position(range.end, &rope)?;
-
-        //             let range = Range::new(start_position, end_position);
-
-        //             Some(Location::new(uri.clone(), range))
-        //         })
-        //         .collect::<Vec<_>>();
-        //     Some(ret)
-        // }();
-        // Ok(reference_list)
-        Ok(None)
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let uri = params.text_document_position.text_document.uri.to_string();
+        let position = params.text_document_position.position;
+        let references = self.get_references(uri, position);
+        Ok(references)
     }
 
     async fn semantic_tokens_full(
@@ -480,6 +461,34 @@ impl Backend {
         );
 
         Some(GotoDefinitionResponse::Scalar(location))
+    }
+
+    fn get_references(&self, uri: String, position: Position) -> Option<Vec<Location>> {
+        let rope = self.document_map.get(&uri)?;
+        let compilation_result = self.semanticast_map.get(&uri)?;
+        let offset = position_to_offset(position, &rope)?;
+        let symbol_id = compilation_result.semantic.get_symbol_at(offset)?;
+        dbg!(&symbol_id);
+        // Find the reference at the current position
+        let ref_ids = compilation_result.semantic.get_symbol_references(symbol_id);
+        ref_ids.iter().for_each(|ref_id| {
+            dbg!(&compilation_result.semantic.reference_spans[*ref_id]);
+        });
+
+        let references = ref_ids
+            .iter()
+            .filter_map(|ref_id| {
+                let span = compilation_result.semantic.reference_spans[*ref_id].clone();
+                let start = offset_to_position(span.start, &rope)?;
+                let end = offset_to_position(span.end, &rope)?;
+                Some(Location::new(
+                    Url::parse(&uri).unwrap_or_else(|_| Url::from_directory_path(&uri).unwrap()),
+                    Range::new(start, end),
+                ))
+            })
+            .collect::<Vec<_>>();
+
+        Some(references)
     }
 
     async fn on_change(&self, item: TextDocumentChange<'_>) {
