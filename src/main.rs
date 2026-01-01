@@ -139,7 +139,7 @@ impl LanguageServer for Backend {
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
         let uri = params.text_document_position.text_document.uri.to_string();
         let position = params.text_document_position.position;
-        let references = self.get_references(uri, position);
+        let references = self.get_references(uri, position, params.context.include_declaration);
         Ok(references)
     }
 
@@ -347,35 +347,12 @@ impl LanguageServer for Backend {
         Ok(None)
     }
 
-    async fn rename(&self, _params: RenameParams) -> Result<Option<WorkspaceEdit>> {
-        // let workspace_edit = || -> Option<WorkspaceEdit> {
-        //     let uri = params.text_document_position.text_document.uri;
-        //     let semantic = self.semantic_map.get(uri.as_str())?;
-        //     let rope = self.document_map.get(uri.as_str())?;
-        //     let position = params.text_document_position.position;
-        //     let offset = position_to_offset(position, &rope)?;
-        //     let reference_list = get_references(&semantic, offset, offset + 1, true)?;
-
-        //     let new_name = params.new_name;
-        //     (!reference_list.is_empty()).then_some(()).map(|_| {
-        //         let edit_list = reference_list
-        //             .into_iter()
-        //             .filter_map(|range| {
-        //                 let start_position = offset_to_position(range.start, &rope)?;
-        //                 let end_position = offset_to_position(range.end, &rope)?;
-        //                 Some(TextEdit::new(
-        //                     Range::new(start_position, end_position),
-        //                     new_name.clone(),
-        //                 ))
-        //             })
-        //             .collect::<Vec<_>>();
-        //         let mut map = HashMap::new();
-        //         map.insert(uri, edit_list);
-        //         WorkspaceEdit::new(map)
-        //     })
-        // }();
-        // Ok(workspace_edit)
-        Ok(None)
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let uri = params.text_document_position.text_document.uri.to_string();
+        let position = params.text_document_position.position;
+        let new_name = params.new_name;
+        let workspace_edit = self.get_rename_edit(uri, position, new_name);
+        Ok(workspace_edit)
     }
 
     async fn did_change_configuration(&self, _: DidChangeConfigurationParams) {
@@ -463,32 +440,64 @@ impl Backend {
         Some(GotoDefinitionResponse::Scalar(location))
     }
 
-    fn get_references(&self, uri: String, position: Position) -> Option<Vec<Location>> {
+    fn get_references(
+        &self,
+        uri: String,
+        position: Position,
+        include_self: bool,
+    ) -> Option<Vec<Location>> {
         let rope = self.document_map.get(&uri)?;
         let compilation_result = self.semanticast_map.get(&uri)?;
         let offset = position_to_offset(position, &rope)?;
         let symbol_id = compilation_result.semantic.get_symbol_at(offset)?;
-        dbg!(&symbol_id);
+
+        let mut references = Vec::new();
+        let uri = Url::parse(&uri).unwrap_or_else(|_| Url::from_directory_path(&uri).unwrap());
+        if include_self {
+            // Include the symbol definition itself
+            let symbol_span = compilation_result.semantic.get_symbol_span(symbol_id);
+            let start = offset_to_position(symbol_span.start, &rope)?;
+            let end = offset_to_position(symbol_span.end, &rope)?;
+            references.push(Location::new(uri.clone(), Range::new(start, end)));
+        }
         // Find the reference at the current position
         let ref_ids = compilation_result.semantic.get_symbol_references(symbol_id);
-        ref_ids.iter().for_each(|ref_id| {
-            dbg!(&compilation_result.semantic.reference_spans[*ref_id]);
-        });
 
-        let references = ref_ids
-            .iter()
-            .filter_map(|ref_id| {
-                let span = compilation_result.semantic.reference_spans[*ref_id].clone();
-                let start = offset_to_position(span.start, &rope)?;
-                let end = offset_to_position(span.end, &rope)?;
-                Some(Location::new(
-                    Url::parse(&uri).unwrap_or_else(|_| Url::from_directory_path(&uri).unwrap()),
-                    Range::new(start, end),
-                ))
+        references.extend(ref_ids.iter().filter_map(|ref_id| {
+            let span = compilation_result.semantic.reference_spans[*ref_id].clone();
+            let start = offset_to_position(span.start, &rope)?;
+            let end = offset_to_position(span.end, &rope)?;
+            Some(Location::new(
+                uri.clone(),
+                Range::new(start, end),
+            ))
+        }));
+        Some(references)
+    }
+
+    fn get_rename_edit(
+        &self,
+        uri: String,
+        position: Position,
+        new_name: String,
+    ) -> Option<WorkspaceEdit> {
+        let all_reference = self.get_references(uri.clone(), position, true)?;
+
+        let edits = all_reference
+            .into_iter()
+            .map(|item| TextEdit {
+                range: item.range,
+                new_text: new_name.clone(),
             })
             .collect::<Vec<_>>();
 
-        Some(references)
+        // Create workspace edit with the text edits
+        let parsed_uri =
+            Url::parse(&uri).unwrap_or_else(|_| Url::from_directory_path(&uri).unwrap());
+        let mut edit_map = std::collections::HashMap::new();
+        edit_map.insert(parsed_uri, edits);
+
+        Some(WorkspaceEdit::new(edit_map))
     }
 
     async fn on_change(&self, item: TextDocumentChange<'_>) {
