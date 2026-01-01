@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use lext_lang::{compile, CompileResult, Program};
+use lext_lang::{compile, CompileResult};
 use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -506,7 +506,7 @@ impl Backend {
         let diagnostics = compile_result
             .diagnostics
             .iter()
-            .map(|d| {
+            .flat_map(|d| {
                 d.labels.iter().filter_map(|label| {
                     let start = offset_to_position(label.range.start, &rope)?;
                     let end = offset_to_position(label.range.end, &rope)?;
@@ -524,7 +524,6 @@ impl Backend {
                     Some(diag)
                 })
             })
-            .flatten()
             .collect::<Vec<_>>();
 
         let uri =
