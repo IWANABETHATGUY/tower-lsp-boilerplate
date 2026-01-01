@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use chumsky::primitive::End;
 use dashmap::DashMap;
-use lext_lang::Program;
+use lext_lang::{get_ast_and_semantic, ParseResult, Program};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -15,7 +16,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 struct Backend {
     client: Client,
     document_map: DashMap<String, Rope>,
-    ast_map: DashMap<String, Program>,
+    semanticast_map: DashMap<String, ParseResult>,
 }
 
 #[tower_lsp::async_trait]
@@ -90,12 +91,10 @@ impl LanguageServer for Backend {
 
     async fn initialized(&self, _: InitializedParams) {
         // debug!("initialized!");
-        todo!()
     }
 
     async fn shutdown(&self) -> Result<()> {
-        // Ok(())
-        todo!()
+        Ok(())
     }
 
     async fn did_open(&self, _params: DidOpenTextDocumentParams) {
@@ -106,17 +105,15 @@ impl LanguageServer for Backend {
         //     version: Some(params.text_document.version),
         // })
         // .await
-        todo!()
     }
 
-    async fn did_change(&self, _params: DidChangeTextDocumentParams) {
-        // self.on_change(TextDocumentItem {
-        //     text: &params.content_changes[0].text,
-        //     uri: params.text_document.uri,
-        //     version: Some(params.text_document.version),
-        // })
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        self.on_change(TextDocumentChange {
+            text: &params.content_changes[0].text,
+            uri: params.text_document.uri.to_string(),
+        })
+        .await;
         // .await
-        todo!()
     }
 
     async fn did_save(&self, _params: DidSaveTextDocumentParams) {
@@ -131,12 +128,10 @@ impl LanguageServer for Backend {
         //     _ = self.client.semantic_tokens_refresh().await;
         // }
         // debug!("file saved!");
-        todo!()
     }
 
     async fn did_close(&self, _: DidCloseTextDocumentParams) {
         // debug!("file closed!");
-        todo!()
     }
 
     async fn goto_definition(
@@ -175,7 +170,7 @@ impl LanguageServer for Backend {
         //     })
         // }();
         // Ok(definition)
-        todo!()
+        Ok(None)
     }
 
     async fn references(&self, _params: ReferenceParams) -> Result<Option<Vec<Location>>> {
@@ -201,7 +196,7 @@ impl LanguageServer for Backend {
         //     Some(ret)
         // }();
         // Ok(reference_list)
-        todo!()
+        Ok(None)
     }
 
     async fn semantic_tokens_full(
@@ -249,7 +244,7 @@ impl LanguageServer for Backend {
         //     })));
         // }
         // Ok(None)
-        todo!()
+        Ok(None)
     }
 
     async fn semantic_tokens_range(
@@ -292,7 +287,7 @@ impl LanguageServer for Backend {
         //         data,
         //     })
         // }))
-        todo!()
+        Ok(None)
     }
 
     async fn inlay_hint(
@@ -355,7 +350,7 @@ impl LanguageServer for Backend {
         //     .collect::<Vec<_>>();
 
         // Ok(Some(inlay_hint_list))
-        todo!()
+        Ok(None)
     }
 
     async fn completion(&self, _params: CompletionParams) -> Result<Option<CompletionResponse>> {
@@ -405,7 +400,7 @@ impl LanguageServer for Backend {
         //     Some(ret)
         // }();
         // Ok(completions.map(CompletionResponse::Array))
-        todo!()
+        Ok(None)
     }
 
     async fn rename(&self, _params: RenameParams) -> Result<Option<WorkspaceEdit>> {
@@ -436,22 +431,19 @@ impl LanguageServer for Backend {
         //     })
         // }();
         // Ok(workspace_edit)
-        todo!()
+        Ok(None)
     }
 
     async fn did_change_configuration(&self, _: DidChangeConfigurationParams) {
         // debug!("configuration changed!");
-        todo!()
     }
 
     async fn did_change_workspace_folders(&self, _: DidChangeWorkspaceFoldersParams) {
         // debug!("workspace folders changed!");
-        todo!()
     }
 
     async fn did_change_watched_files(&self, _: DidChangeWatchedFilesParams) {
         // debug!("watched files have changed!");
-        todo!()
     }
 
     async fn execute_command(&self, _: ExecuteCommandParams) -> Result<Option<Value>> {
@@ -463,8 +455,7 @@ impl LanguageServer for Backend {
         //     Err(err) => self.client.log_message(MessageType::ERROR, err).await,
         // }
 
-        // Ok(None)
-        todo!()
+        Ok(None)
     }
 }
 
@@ -490,12 +481,57 @@ async fn main() {
 
     let (service, socket) = LspService::build(|client| Backend {
         client,
+        semanticast_map: DashMap::new(),
         document_map: DashMap::new(),
-        ast_map: DashMap::new()
     })
     .finish();
 
     Server::new(stdin, stdout, socket).serve(service).await;
+}
+
+impl Backend {
+    async fn on_change(&self, item: TextDocumentChange<'_>) {
+        let rope = Rope::from_str(item.text);
+        let parse_result = get_ast_and_semantic(item.text);
+        let diagnostics= parse_result
+            .diagnostics
+            .iter()
+            .map(|d| {
+                d.labels.iter().filter_map(|label| {
+                    let start = offset_to_position(label.range.start, &rope)?;
+                    let end = offset_to_position(label.range.end, &rope)?;
+                    let diag = Diagnostic {
+                        range: Range::new(start, end),
+                        severity: None,
+                        code: None,
+                        code_description: None,
+                        source: None,
+                        message: format!("{:?}", d.message),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    };
+                    Some(diag)
+                })
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+
+        if !diagnostics.is_empty() {
+            let uri = Url::parse(&item.uri)
+                .unwrap_or_else(|_| Url::from_directory_path(&item.uri).unwrap());
+            self.client
+                .publish_diagnostics(uri, diagnostics, None)
+                .await;
+        }
+        self.semanticast_map.insert(item.uri.clone(), parse_result);
+        self.document_map.insert(item.uri.clone(), rope);
+    }
+}
+
+struct TextDocumentChange<'a> {
+    uri: String,
+    text: &'a str,
 }
 
 #[allow(dead_code)]

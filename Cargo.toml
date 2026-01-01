@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lext-lang = { package = "lelwel_nrs", path = "E:/Documents/vscode/lelwel_nrs" }
+lext-lang = {  path = "E:/Documents/vscode/lelwel_nrs" }
 chumsky = "0.9.3"
 env_logger = "0.11.5"
 ropey = "1.5.0"

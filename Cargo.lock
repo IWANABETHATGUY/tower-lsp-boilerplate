@@ -439,7 +439,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lelwel_nrs"
+name = "lext-lang"
 version = "0.1.0"
 dependencies = [
  "codespan-reporting 0.13.1",
@@ -578,7 +578,7 @@ dependencies = [
  "dashmap 6.1.0",
  "env_logger",
  "im-rc",
- "lelwel_nrs",
+ "lext-lang",
  "log",
  "oxc_index 0.36.0",
  "ropey",
