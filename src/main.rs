@@ -1,6 +1,5 @@
-
 use dashmap::DashMap;
-use lext_lang::{compile, CompileResult,  Program};
+use lext_lang::{compile, CompileResult, Program};
 use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -88,21 +87,20 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        // debug!("initialized!");
+        debug!("initialized!");
     }
 
     async fn shutdown(&self) -> Result<()> {
         Ok(())
     }
 
-    async fn did_open(&self, _params: DidOpenTextDocumentParams) {
-        // debug!("file opened");
-        // self.on_change(TextDocumentItem {
-        //     uri: params.text_document.uri,
-        //     text: &params.text_document.text,
-        //     version: Some(params.text_document.version),
-        // })
-        // .await
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        self.on_change(TextDocumentChange {
+            uri: params.text_document.uri.to_string(),
+            text: &params.text_document.text,
+        })
+        .await;
+        debug!("file opened!");
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -111,11 +109,9 @@ impl LanguageServer for Backend {
             uri: params.text_document.uri.to_string(),
         })
         .await;
-        // .await
     }
 
     async fn did_save(&self, _params: DidSaveTextDocumentParams) {
-        // dbg!(&params.text);
         // if let Some(text) = params.text {
         //     let item = TextDocumentItem {
         //         uri: params.text_document.uri,
@@ -129,7 +125,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_close(&self, _: DidCloseTextDocumentParams) {
-        // debug!("file closed!");
+        debug!("file closed!");
     }
 
     async fn goto_definition(
@@ -458,26 +454,38 @@ async fn main() {
 
 impl Backend {
     fn get_definition(&self, params: GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
-        let uri = params.text_document_position_params.text_document.uri.to_string();
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
         let position = params.text_document_position_params.position;
-        
+
         let rope = self.document_map.get(&uri)?;
         let compilation_result = self.semanticast_map.get(&uri)?;
         let offset = position_to_offset(position, &rope)?;
-        let ref_id = compilation_result.semantic.span_to_reference.find(offset, offset+ 1).next()?.val;
+        let ref_id = compilation_result
+            .semantic
+            .span_to_reference
+            .find(offset, offset + 1)
+            .next()?
+            .val;
         let symbol_id = compilation_result.semantic.references[ref_id]?;
         let symbol_span = compilation_result.semantic.get_symbol_span(symbol_id);
         let start = offset_to_position(symbol_span.start, &rope)?;
         let end = offset_to_position(symbol_span.end, &rope)?;
-        let location = Location::new(params.text_document_position_params.text_document.uri, Range::new(start, end));
-        
+        let location = Location::new(
+            params.text_document_position_params.text_document.uri,
+            Range::new(start, end),
+        );
+
         Some(GotoDefinitionResponse::Scalar(location))
     }
 
     async fn on_change(&self, item: TextDocumentChange<'_>) {
         let rope = Rope::from_str(item.text);
         let compile_result = compile(item.text);
-        let diagnostics= compile_result
+        let diagnostics = compile_result
             .diagnostics
             .iter()
             .map(|d| {
@@ -501,12 +509,13 @@ impl Backend {
             .flatten()
             .collect::<Vec<_>>();
 
-            let uri = Url::parse(&item.uri)
-                .unwrap_or_else(|_| Url::from_directory_path(&item.uri).unwrap());
-            self.client
-                .publish_diagnostics(uri, diagnostics, None)
-                .await;
-        self.semanticast_map.insert(item.uri.clone(), compile_result);
+        let uri =
+            Url::parse(&item.uri).unwrap_or_else(|_| Url::from_directory_path(&item.uri).unwrap());
+        self.client
+            .publish_diagnostics(uri, diagnostics, None)
+            .await;
+        self.semanticast_map
+            .insert(item.uri.clone(), compile_result);
         self.document_map.insert(item.uri.clone(), rope);
     }
 }
