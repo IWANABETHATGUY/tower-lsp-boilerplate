@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use dashmap::DashMap;
+use lext_lang::Program;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -11,6 +15,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 struct Backend {
     client: Client,
     document_map: DashMap<String, Rope>,
+    ast_map: DashMap<String, Program>,
 }
 
 #[tower_lsp::async_trait]
@@ -486,6 +491,7 @@ async fn main() {
     let (service, socket) = LspService::build(|client| Backend {
         client,
         document_map: DashMap::new(),
+        ast_map: DashMap::new()
     })
     .finish();
 
