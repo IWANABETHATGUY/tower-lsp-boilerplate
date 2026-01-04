@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use lext_lang::{compile, CompileResult};
+use lext_lang::{compile, CompileResult, Type};
 use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -236,65 +236,9 @@ impl LanguageServer for Backend {
 
     async fn inlay_hint(
         &self,
-        _params: tower_lsp::lsp_types::InlayHintParams,
+        params: tower_lsp::lsp_types::InlayHintParams,
     ) -> Result<Option<Vec<InlayHint>>> {
-        // debug!("inlay hint");
-        // let uri = &params.text_document.uri;
-        // let mut hashmap = HashMap::new();
-        // if let Some(ast) = self.ast_map.get(uri.as_str()) {
-        //     ast.iter().for_each(|(func, _)| {
-        //         type_inference(&func.body, &mut hashmap);
-        //     });
-        // }
-
-        // let document = match self.document_map.get(uri.as_str()) {
-        //     Some(rope) => rope,
-        //     None => return Ok(None),
-        // };
-        // let inlay_hint_list = hashmap
-        //     .into_iter()
-        //     .map(|(k, v)| {
-        //         (
-        //             k.start,
-        //             k.end,
-        //             match v {
-        //                 nrs_language_server::nrs_lang::Value::Null => "null".to_string(),
-        //                 nrs_language_server::nrs_lang::Value::Bool(_) => "bool".to_string(),
-        //                 nrs_language_server::nrs_lang::Value::Num(_) => "number".to_string(),
-        //                 nrs_language_server::nrs_lang::Value::Str(_) => "string".to_string(),
-        //             },
-        //         )
-        //     })
-        //     .filter_map(|item| {
-        //         // let start_position = offset_to_position(item.0, document)?;
-        //         let end_position = offset_to_position(item.1, &document)?;
-        //         let inlay_hint = InlayHint {
-        //             text_edits: None,
-        //             tooltip: None,
-        //             kind: Some(InlayHintKind::TYPE),
-        //             padding_left: None,
-        //             padding_right: None,
-        //             data: None,
-        //             position: end_position,
-        //             label: InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
-        //                 value: item.2,
-        //                 tooltip: None,
-        //                 location: Some(Location {
-        //                     uri: params.text_document.uri.clone(),
-        //                     range: Range {
-        //                         start: Position::new(0, 4),
-        //                         end: Position::new(0, 10),
-        //                     },
-        //                 }),
-        //                 command: None,
-        //             }]),
-        //         };
-        //         Some(inlay_hint)
-        //     })
-        //     .collect::<Vec<_>>();
-
-        // Ok(Some(inlay_hint_list))
-        Ok(None)
+        Ok(self.build_inlay_hints(&params.text_document.uri.to_string()))
     }
 
     async fn completion(&self, _params: CompletionParams) -> Result<Option<CompletionResponse>> {
@@ -411,6 +355,65 @@ async fn main() {
 }
 
 impl Backend {
+    fn build_inlay_hints(&self, uri: &str) -> Option<Vec<InlayHint>> {
+        let semantic_result = self.semanticast_map.get(uri)?;
+        let rope = self.document_map.get(uri)?;
+        let bindings = &semantic_result.semantic.bindings;
+        let hints = bindings
+            .iter_enumerated()
+            .filter_map(|(symbol_id, type_info)| {
+                if semantic_result.semantic.get_symbol_kind(symbol_id)
+                    != lext_lang::SymbolKind::Variable
+                {
+                    return None;
+                }
+                let span = semantic_result.semantic.get_symbol_span(symbol_id);
+                let end = offset_to_position(span.end, &rope)?;
+                let inly_hint_parts = match type_info.ty {
+                    Type::Struct(id) => {
+                        let mut parts = vec![];
+                        parts.push(InlayHintLabelPart {
+                            value: ": ".to_string(),
+                            ..Default::default()
+                        });
+                        let span = semantic_result.semantic.get_symbol_span(id);
+                        let start = offset_to_position(span.start, &rope)?;
+                        let end = offset_to_position(span.end, &rope)?;
+                        dbg!(&start);
+                        dbg!(&end);
+                        let location = Location::new(
+                            Url::parse(uri)
+                                .unwrap_or_else(|_| Url::from_directory_path(uri).unwrap()),
+                            Range::new(start, end),
+                        );
+                        parts.push(InlayHintLabelPart {
+                            value: type_info.ty.format_literal_type(&semantic_result.semantic),
+                            location: Some(location),
+                            ..Default::default()
+                        });
+                        InlayHintLabel::LabelParts(parts)
+                    }
+                    _ => InlayHintLabel::String(format!(
+                        ": {}",
+                        type_info.ty.format_literal_type(&semantic_result.semantic)
+                    )),
+                };
+                Some(InlayHint {
+                    position: Position::new(end.line, end.character),
+                    label: inly_hint_parts,
+                    kind: Some(InlayHintKind::TYPE),
+                    text_edits: None,
+                    tooltip: None,
+                    padding_left: Some(true),
+                    padding_right: Some(false),
+                    data: None,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        Some(hints)
+    }
+
     fn get_definition(&self, params: GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
         let uri = params
             .text_document_position_params
@@ -420,8 +423,23 @@ impl Backend {
         let position = params.text_document_position_params.position;
 
         let rope = self.document_map.get(&uri)?;
+
         let compilation_result = self.semanticast_map.get(&uri)?;
         let offset = position_to_offset(position, &rope)?;
+        if let Some(interval) = compilation_result
+            .semantic
+            .span_to_symbol
+            .find(offset, offset + 1)
+            .next()
+        {
+            let start = offset_to_position(interval.start, &rope)?;
+            let end = offset_to_position(interval.stop, &rope)?;
+            let location = Location::new(
+                params.text_document_position_params.text_document.uri,
+                Range::new(start, end),
+            );
+            return Some(GotoDefinitionResponse::Scalar(location));
+        };
         let ref_id = compilation_result
             .semantic
             .span_to_reference
@@ -467,10 +485,7 @@ impl Backend {
             let span = compilation_result.semantic.reference_spans[*ref_id].clone();
             let start = offset_to_position(span.start, &rope)?;
             let end = offset_to_position(span.end, &rope)?;
-            Some(Location::new(
-                uri.clone(),
-                Range::new(start, end),
-            ))
+            Some(Location::new(uri.clone(), Range::new(start, end)))
         }));
         Some(references)
     }
