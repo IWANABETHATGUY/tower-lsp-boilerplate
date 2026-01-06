@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use lext_lang::{CompileResult, Formatter, Type, compile};
+use lext_lang::{AstNode, CompileResult, Formatter, Type, TypeInfo, compile, find_node_at_offset};
 use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -243,54 +243,9 @@ impl LanguageServer for Backend {
         Ok(self.build_inlay_hints(&params.text_document.uri.to_string()))
     }
 
-    async fn completion(&self, _params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        // let uri = params.text_document_position.text_document.uri;
-        // let position = params.text_document_position.position;
-        // let completions = || -> Option<Vec<CompletionItem>> {
-        //     let rope = self.document_map.get(&uri.to_string())?;
-        //     let ast = self.ast_map.get(&uri.to_string())?;
-        //     let char = rope.try_line_to_char(position.line as usize).ok()?;
-        //     let offset = char + position.character as usize;
-        //     let completions = completion(&ast, offset);
-        //     let mut ret = Vec::with_capacity(completions.len());
-        //     for (_, item) in completions {
-        //         match item {
-        //             nrs_language_server::completion::ImCompleteCompletionItem::Variable(var) => {
-        //                 ret.push(CompletionItem {
-        //                     label: var.clone(),
-        //                     insert_text: Some(var.clone()),
-        //                     kind: Some(CompletionItemKind::VARIABLE),
-        //                     detail: Some(var),
-        //                     ..Default::default()
-        //                 });
-        //             }
-        //             nrs_language_server::completion::ImCompleteCompletionItem::Function(
-        //                 name,
-        //                 args,
-        //             ) => {
-        //                 ret.push(CompletionItem {
-        //                     label: name.clone(),
-        //                     kind: Some(CompletionItemKind::FUNCTION),
-        //                     detail: Some(name.clone()),
-        //                     insert_text: Some(format!(
-        //                         "{}({})",
-        //                         name,
-        //                         args.iter()
-        //                             .enumerate()
-        //                             .map(|(index, item)| { format!("${{{}:{}}}", index + 1, item) })
-        //                             .collect::<Vec<_>>()
-        //                             .join(",")
-        //                     )),
-        //                     insert_text_format: Some(InsertTextFormat::SNIPPET),
-        //                     ..Default::default()
-        //                 });
-        //             }
-        //         }
-        //     }
-        //     Some(ret)
-        // }();
-        // Ok(completions.map(CompletionResponse::Array))
-        Ok(None)
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let completions = self.get_completion(params);
+        Ok(completions.map(CompletionResponse::Array))
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
@@ -535,6 +490,134 @@ impl Backend {
         edit_map.insert(parsed_uri, edits);
 
         Some(WorkspaceEdit::new(edit_map))
+    }
+
+    fn get_completion(&self, params: CompletionParams) -> Option<Vec<CompletionItem>> {
+        let text_doc_position = params.text_document_position;
+        let uri = text_doc_position.text_document.uri.to_string();
+        let semantic_result = self.semanticast_map.get(&uri)?;
+        let rope = self.document_map.get(&uri)?;
+        let offset = position_to_offset(text_doc_position.position, &rope)?;
+
+        let mut items = Vec::new();
+
+        // Try to find the AST node at the current position
+        if let Some(nearest_node) =
+            find_node_at_offset(&semantic_result.program.file(), offset as u32)
+        {
+            match nearest_node {
+                // Field access completion: suggest available fields/members
+                AstNode::ExprField(field_expr) => {
+                    dbg!(&field_expr);
+                    let reference_id = semantic_result
+                        .semantic
+                        .get_reference_at(field_expr.object.as_ref()?.span().start as usize)?;
+                    let symbol_id = semantic_result.semantic.references[reference_id]?;
+                    let ty_info= semantic_result.semantic.get_symbol_type(symbol_id)?;
+                    let struct_id = match ty_info.ty {
+                        Type::Struct(struct_id) => struct_id,
+                        _ => return None,
+                    };
+                    let struct_def = semantic_result.semantic.structs.get(&struct_id)?;
+                    struct_def.fields.iter().for_each(|field| {
+                        items.push(CompletionItem {
+                            label: field.name.clone(),
+                            kind: Some(CompletionItemKind::FIELD),
+                            detail: Some(format!(
+                                ": {}",
+                                field.ty.format_literal_type(&semantic_result.semantic)
+                            )),
+                            insert_text: Some(field.name.clone()),
+                            ..Default::default()
+                        });
+                    });
+                }
+                _ => {
+                    // Default: suggest all available symbols
+                    let bindings = &semantic_result.semantic.bindings;
+                    bindings
+                        .iter_enumerated()
+                        .for_each(|(symbol_id, type_info)| {
+                            let symbol_kind = semantic_result.semantic.get_symbol_kind(symbol_id);
+                            let span = semantic_result.semantic.get_symbol_span(symbol_id);
+
+                            let name_slice =
+                                rope.byte_slice(span.start as usize..span.end as usize);
+                            if let Ok(name) = std::str::from_utf8(
+                                name_slice.bytes().collect::<Vec<_>>().as_slice(),
+                            ) {
+                                let (kind, detail) = match symbol_kind {
+                                    lext_lang::SymbolKind::Variable => (
+                                        Some(CompletionItemKind::VARIABLE),
+                                        Some(format!(
+                                            ": {}",
+                                            type_info
+                                                .ty
+                                                .format_literal_type(&semantic_result.semantic)
+                                        )),
+                                    ),
+                                    lext_lang::SymbolKind::Function => {
+                                        (Some(CompletionItemKind::FUNCTION), None)
+                                    }
+                                    lext_lang::SymbolKind::Struct => {
+                                        (Some(CompletionItemKind::STRUCT), None)
+                                    }
+                                    _ => (None, None),
+                                };
+
+                                items.push(CompletionItem {
+                                    label: name.to_string(),
+                                    kind,
+                                    detail,
+                                    insert_text: Some(name.to_string()),
+                                    ..Default::default()
+                                });
+                            }
+                        });
+                }
+            }
+        } else {
+            // No node found, suggest all available symbols
+            let bindings = &semantic_result.semantic.bindings;
+            bindings
+                .iter_enumerated()
+                .for_each(|(symbol_id, type_info)| {
+                    let symbol_kind = semantic_result.semantic.get_symbol_kind(symbol_id);
+                    let span = semantic_result.semantic.get_symbol_span(symbol_id);
+
+                    let name_slice = rope.byte_slice(span.start as usize..span.end as usize);
+                    if let Ok(name) =
+                        std::str::from_utf8(name_slice.bytes().collect::<Vec<_>>().as_slice())
+                    {
+                        let (kind, detail) = match symbol_kind {
+                            lext_lang::SymbolKind::Variable => (
+                                Some(CompletionItemKind::VARIABLE),
+                                Some(format!(
+                                    ": {}",
+                                    type_info.ty.format_literal_type(&semantic_result.semantic)
+                                )),
+                            ),
+                            lext_lang::SymbolKind::Function => {
+                                (Some(CompletionItemKind::FUNCTION), None)
+                            }
+                            lext_lang::SymbolKind::Struct => {
+                                (Some(CompletionItemKind::STRUCT), None)
+                            }
+                            _ => (None, None),
+                        };
+
+                        items.push(CompletionItem {
+                            label: name.to_string(),
+                            kind,
+                            detail,
+                            insert_text: Some(name.to_string()),
+                            ..Default::default()
+                        });
+                    }
+                });
+        }
+        dbg!(&items);
+        Some(items)
     }
 
     async fn on_change(&self, item: TextDocumentChange<'_>) {
