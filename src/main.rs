@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use lext_lang::{compile, CompileResult, Type};
+use lext_lang::{CompileResult, Formatter, Type, compile};
 use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,9 @@ impl LanguageServer for Backend {
         Ok(InitializeResult {
             server_info: None,
             offset_encoding: None,
+
             capabilities: ServerCapabilities {
+                document_formatting_provider: Some(OneOf::Left(true)),
                 inlay_hint_provider: Some(OneOf::Left(true)),
                 text_document_sync: Some(TextDocumentSyncCapability::Options(
                     TextDocumentSyncOptions {
@@ -299,6 +301,10 @@ impl LanguageServer for Backend {
         Ok(workspace_edit)
     }
 
+    async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
+        Ok(self.format_text(params))
+    }
+
     async fn did_change_configuration(&self, _: DidChangeConfigurationParams) {
         debug!("configuration changed!");
     }
@@ -355,6 +361,24 @@ async fn main() {
 }
 
 impl Backend {
+    fn format_text(&self, params: DocumentFormattingParams) -> Option<Vec<TextEdit>> {
+        let uri = params.text_document.uri.to_string();
+        let rope = self.document_map.get(&uri)?;
+        let semantic_result = self.semanticast_map.get(&uri)?;
+        let formatter = Formatter::new(80);
+        let formatted_text = formatter.format(&semantic_result.program.file());
+        Some(vec![TextEdit {
+            range: Range {
+                start: Position::new(0, 0),
+                end: Position::new(
+                    rope.len_lines() as u32,
+                    rope.line(rope.len_lines() - 1).len_chars() as u32,
+                ),
+            },
+            new_text: formatted_text,
+        }])
+    }
+
     fn build_inlay_hints(&self, uri: &str) -> Option<Vec<InlayHint>> {
         let semantic_result = self.semanticast_map.get(uri)?;
         let rope = self.document_map.get(uri)?;
@@ -368,7 +392,7 @@ impl Backend {
                     return None;
                 }
                 let span = semantic_result.semantic.get_symbol_span(symbol_id);
-                let end = offset_to_position(span.end, &rope)?;
+                let end = offset_to_position(span.end as usize, &rope)?;
                 let inly_hint_parts = match type_info.ty {
                     Type::Struct(id) => {
                         let mut parts = vec![];
@@ -377,10 +401,8 @@ impl Backend {
                             ..Default::default()
                         });
                         let span = semantic_result.semantic.get_symbol_span(id);
-                        let start = offset_to_position(span.start, &rope)?;
-                        let end = offset_to_position(span.end, &rope)?;
-                        dbg!(&start);
-                        dbg!(&end);
+                        let start = offset_to_position(span.start as usize, &rope)?;
+                        let end = offset_to_position(span.end as usize, &rope)?;
                         let location = Location::new(
                             Url::parse(uri)
                                 .unwrap_or_else(|_| Url::from_directory_path(uri).unwrap()),
@@ -448,8 +470,8 @@ impl Backend {
             .val;
         let symbol_id = compilation_result.semantic.references[ref_id]?;
         let symbol_span = compilation_result.semantic.get_symbol_span(symbol_id);
-        let start = offset_to_position(symbol_span.start, &rope)?;
-        let end = offset_to_position(symbol_span.end, &rope)?;
+        let start = offset_to_position(symbol_span.start as usize, &rope)?;
+        let end = offset_to_position(symbol_span.end as usize, &rope)?;
         let location = Location::new(
             params.text_document_position_params.text_document.uri,
             Range::new(start, end),
@@ -474,8 +496,8 @@ impl Backend {
         if include_self {
             // Include the symbol definition itself
             let symbol_span = compilation_result.semantic.get_symbol_span(symbol_id);
-            let start = offset_to_position(symbol_span.start, &rope)?;
-            let end = offset_to_position(symbol_span.end, &rope)?;
+            let start = offset_to_position(symbol_span.start as usize, &rope)?;
+            let end = offset_to_position(symbol_span.end as usize, &rope)?;
             references.push(Location::new(uri.clone(), Range::new(start, end)));
         }
         // Find the reference at the current position
@@ -483,8 +505,8 @@ impl Backend {
 
         references.extend(ref_ids.iter().filter_map(|ref_id| {
             let span = compilation_result.semantic.reference_spans[*ref_id].clone();
-            let start = offset_to_position(span.start, &rope)?;
-            let end = offset_to_position(span.end, &rope)?;
+            let start = offset_to_position(span.start as usize, &rope)?;
+            let end = offset_to_position(span.end as usize, &rope)?;
             Some(Location::new(uri.clone(), Range::new(start, end)))
         }));
         Some(references)
