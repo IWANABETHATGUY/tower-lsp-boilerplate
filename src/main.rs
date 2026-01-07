@@ -608,7 +608,7 @@ impl Backend {
     async fn on_change(&self, item: TextDocumentChange<'_>) {
         let rope = Rope::from_str(item.text);
         let compile_result = compile(item.text);
-        let diagnostics = compile_result
+        let mut diagnostics = compile_result
             .diagnostics
             .iter()
             .flat_map(|d| {
@@ -630,6 +630,25 @@ impl Backend {
                 })
             })
             .collect::<Vec<_>>();
+        compile_result.semantic.errors.iter().for_each(|sem_err| {
+            let span = sem_err.span;
+            let start = offset_to_position(span.start as usize, &rope);
+            let end = offset_to_position(span.end as usize, &rope);
+            if let (Some(start), Some(end)) = (start, end) {
+                let diag = Diagnostic {
+                    range: Range::new(start, end),
+                    severity: None,
+                    code: None,
+                    code_description: None,
+                    source: None,
+                    message: format!("{}", sem_err.message),
+                    related_information: None,
+                    tags: None,
+                    data: None,
+                };
+                diagnostics.push(diag);
+            }
+        });
 
         let uri =
             Url::parse(&item.uri).unwrap_or_else(|_| Url::from_directory_path(&item.uri).unwrap());
