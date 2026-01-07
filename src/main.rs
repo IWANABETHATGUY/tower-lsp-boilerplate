@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use lext_lang::{AstNode, CompileResult, Formatter, Type, TypeInfo, compile, find_node_at_offset};
+use lext_lang::{AstNode, CompileResult, Formatter, SymbolId, Type, TypeInfo, compile, find_node_at_offset};
 use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -477,6 +477,55 @@ impl Backend {
         Some(WorkspaceEdit::new(edit_map))
     }
 
+    fn get_struct_id_from_field(
+        &self,
+        field_expr: &lext_lang::ExprField,
+        semantic_result: &CompileResult,
+    ) -> Option<SymbolId> {
+        // a.b since it is a complete field access, we don't need to suggest anything
+        if !field_expr.field.is_none() {
+            return None;
+        }
+
+        let mut access_arr = vec![];
+        let mut cur = field_expr.object.as_ref()?;
+        loop {
+            match cur.as_ref() {
+                lext_lang::Expr::Field(field_expr) => {
+                    access_arr.push(field_expr.field.as_ref()?.name.clone());
+                    cur = field_expr.object.as_ref()?;
+                }
+                lext_lang::Expr::Name(_name_expr) => {
+                    break;
+                }
+                _ => {
+                    return None;
+                }
+            }
+        }
+        access_arr.reverse();
+
+        let reference_id = semantic_result
+            .semantic
+            .get_reference_at(field_expr.object.as_ref()?.span().start as usize)?;
+        let symbol_id = semantic_result.semantic.references[reference_id]?;
+        let ty_info = semantic_result.semantic.get_symbol_type(symbol_id)?;
+        let Type::Struct(mut struct_id) = ty_info.ty else {
+            return None;
+        };
+        
+        for field_name in access_arr {
+            let struct_def = semantic_result.semantic.structs.get(&struct_id)?;
+            let field = struct_def.fields.iter().find(|f| f.name == field_name)?;
+            let Type::Struct(next_struct_id) = field.ty else {
+                return None;
+            };
+            struct_id = next_struct_id;
+        }
+        Some(struct_id)
+
+    }
+
     fn get_completion(&self, params: CompletionParams) -> Option<Vec<CompletionItem>> {
         let text_doc_position = params.text_document_position;
         let uri = text_doc_position.text_document.uri.to_string();
@@ -494,15 +543,7 @@ impl Backend {
                 // Field access completion: suggest available fields/members
                 AstNode::ExprField(field_expr) => {
                     dbg!(&field_expr);
-                    let reference_id = semantic_result
-                        .semantic
-                        .get_reference_at(field_expr.object.as_ref()?.span().start as usize)?;
-                    let symbol_id = semantic_result.semantic.references[reference_id]?;
-                    let ty_info= semantic_result.semantic.get_symbol_type(symbol_id)?;
-                    let struct_id = match ty_info.ty {
-                        Type::Struct(struct_id) => struct_id,
-                        _ => return None,
-                    };
+                    let struct_id = self.get_struct_id_from_field(&field_expr, &semantic_result)?;
                     let struct_def = semantic_result.semantic.structs.get(&struct_id)?;
                     struct_def.fields.iter().for_each(|field| {
                         items.push(CompletionItem {
