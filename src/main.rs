@@ -482,11 +482,6 @@ impl Backend {
         field_expr: &lext_lang::ExprField,
         semantic_result: &CompileResult,
     ) -> Option<SymbolId> {
-        // a.b since it is a complete field access, we don't need to suggest anything
-        if field_expr.field.is_some() {
-            return None;
-        }
-
         let mut access_arr = vec![];
         let mut cur = field_expr.object.as_ref()?;
         loop {
@@ -642,7 +637,6 @@ impl Backend {
                     }
                 });
         }
-        dbg!(&items);
         Some(items)
     }
 
