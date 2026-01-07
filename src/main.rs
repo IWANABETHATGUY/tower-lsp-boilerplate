@@ -114,16 +114,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, _params: DidSaveTextDocumentParams) {
-        // if let Some(text) = params.text {
-        //     let item = TextDocumentItem {
-        //         uri: params.text_document.uri,
-        //         text: &text,
-        //         version: None,
-        //     };
-        //     self.on_change(item).await;
-        //     _ = self.client.semantic_tokens_refresh().await;
-        // }
-        // debug!("file saved!");
+        debug!("file saved!");
     }
 
     async fn did_close(&self, _: DidCloseTextDocumentParams) {
@@ -265,21 +256,15 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change_workspace_folders(&self, _: DidChangeWorkspaceFoldersParams) {
-        // debug!("workspace folders changed!");
+        debug!("workspace folders changed!");
     }
 
     async fn did_change_watched_files(&self, _: DidChangeWatchedFilesParams) {
-        // debug!("watched files have changed!");
+        debug!("watched files have changed!");
     }
 
     async fn execute_command(&self, _: ExecuteCommandParams) -> Result<Option<Value>> {
-        // debug!("command executed!");
-
-        // match self.client.apply_edit(WorkspaceEdit::default()).await {
-        //     Ok(res) if res.applied => self.client.log_message(MessageType::INFO, "applied").await,
-        //     Ok(_) => self.client.log_message(MessageType::INFO, "rejected").await,
-        //     Err(err) => self.client.log_message(MessageType::ERROR, err).await,
-        // }
+        debug!("command executed!");
 
         Ok(None)
     }
