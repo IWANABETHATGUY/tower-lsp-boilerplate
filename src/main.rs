@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use lext_lang::{AstNode, CompileResult, Formatter, SymbolId, Type, TypeInfo, compile, find_node_at_offset};
+use lext_lang::{AstNode, CompileResult, Formatter, SymbolId, Type, compile, find_node_at_offset};
 use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -231,7 +231,7 @@ impl LanguageServer for Backend {
         &self,
         params: tower_lsp::lsp_types::InlayHintParams,
     ) -> Result<Option<Vec<InlayHint>>> {
-        Ok(self.build_inlay_hints(&params.text_document.uri.to_string()))
+        Ok(self.build_inlay_hints(params.text_document.uri.as_ref()))
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
@@ -306,7 +306,7 @@ impl Backend {
         let rope = self.document_map.get(&uri)?;
         let semantic_result = self.semanticast_map.get(&uri)?;
         let formatter = Formatter::new(80);
-        let formatted_text = formatter.format(&semantic_result.program.file());
+        let formatted_text = formatter.format(semantic_result.program.file());
         Some(vec![TextEdit {
             range: Range {
                 start: Position::new(0, 0),
@@ -444,7 +444,7 @@ impl Backend {
         let ref_ids = compilation_result.semantic.get_symbol_references(symbol_id);
 
         references.extend(ref_ids.iter().filter_map(|ref_id| {
-            let span = compilation_result.semantic.reference_spans[*ref_id].clone();
+            let span = compilation_result.semantic.reference_spans[*ref_id];
             let start = offset_to_position(span.start as usize, &rope)?;
             let end = offset_to_position(span.end as usize, &rope)?;
             Some(Location::new(uri.clone(), Range::new(start, end)))
@@ -483,7 +483,7 @@ impl Backend {
         semantic_result: &CompileResult,
     ) -> Option<SymbolId> {
         // a.b since it is a complete field access, we don't need to suggest anything
-        if !field_expr.field.is_none() {
+        if field_expr.field.is_some() {
             return None;
         }
 
@@ -537,13 +537,13 @@ impl Backend {
 
         // Try to find the AST node at the current position
         if let Some(nearest_node) =
-            find_node_at_offset(&semantic_result.program.file(), offset as u32)
+            find_node_at_offset(semantic_result.program.file(), offset as u32)
         {
             match nearest_node {
                 // Field access completion: suggest available fields/members
                 AstNode::ExprField(field_expr) => {
                     dbg!(&field_expr);
-                    let struct_id = self.get_struct_id_from_field(&field_expr, &semantic_result)?;
+                    let struct_id = self.get_struct_id_from_field(field_expr, &semantic_result)?;
                     let struct_def = semantic_result.semantic.structs.get(&struct_id)?;
                     struct_def.fields.iter().for_each(|field| {
                         items.push(CompletionItem {
@@ -682,7 +682,7 @@ impl Backend {
                     code: None,
                     code_description: None,
                     source: None,
-                    message: format!("{}", sem_err.message),
+                    message: sem_err.message.to_string(),
                     related_information: None,
                     tags: None,
                     data: None,
