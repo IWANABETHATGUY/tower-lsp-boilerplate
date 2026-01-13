@@ -253,7 +253,7 @@ impl Backend {
         let rope = self.document_map.get(&uri)?;
         let semantic_result = self.semanticast_map.get(&uri)?;
         let formatter = Formatter::new(80);
-        let formatted_text = formatter.format(semantic_result.program.file());
+        let formatted_text = formatter.format(semantic_result.program.file(), &rope.to_string());
         Some(vec![TextEdit {
             range: Range {
                 start: Position::new(0, 0),
