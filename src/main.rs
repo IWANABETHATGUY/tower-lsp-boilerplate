@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use lext_lang::{
+use l_lang::{
     AstNode, CompileResult, Formatter, SymbolId, SymbolKind, Type, compile, find_node_at_offset,
 };
 use log::debug;
@@ -274,7 +274,7 @@ impl Backend {
             .iter_enumerated()
             .filter_map(|(symbol_id, type_info)| {
                 if semantic_result.semantic.get_symbol_kind(symbol_id)
-                    != lext_lang::SymbolKind::Variable
+                    != l_lang::SymbolKind::Variable
                 {
                     return None;
                 }
@@ -426,18 +426,18 @@ impl Backend {
 
     fn get_struct_id_from_field(
         &self,
-        field_expr: &lext_lang::ExprField,
+        field_expr: &l_lang::ExprField,
         semantic_result: &CompileResult,
     ) -> Option<SymbolId> {
         let mut access_arr = vec![];
         let mut cur = field_expr.object.as_ref()?;
         loop {
             match cur.as_ref() {
-                lext_lang::Expr::Field(field_expr) => {
+                l_lang::Expr::Field(field_expr) => {
                     access_arr.push(field_expr.field.as_ref()?.name.clone());
                     cur = field_expr.object.as_ref()?;
                 }
-                lext_lang::Expr::Name(_name_expr) => {
+                l_lang::Expr::Name(_name_expr) => {
                     break;
                 }
                 _ => {
@@ -515,7 +515,7 @@ impl Backend {
                                 name_slice.bytes().collect::<Vec<_>>().as_slice(),
                             ) {
                                 let (kind, detail) = match symbol_kind {
-                                    lext_lang::SymbolKind::Variable => (
+                                    l_lang::SymbolKind::Variable => (
                                         Some(CompletionItemKind::VARIABLE),
                                         Some(format!(
                                             ": {}",
@@ -524,10 +524,10 @@ impl Backend {
                                                 .format_literal_type(&semantic_result.semantic)
                                         )),
                                     ),
-                                    lext_lang::SymbolKind::Function => {
+                                    l_lang::SymbolKind::Function => {
                                         (Some(CompletionItemKind::FUNCTION), None)
                                     }
-                                    lext_lang::SymbolKind::Struct => {
+                                    l_lang::SymbolKind::Struct => {
                                         (Some(CompletionItemKind::STRUCT), None)
                                     }
                                     _ => (None, None),
@@ -558,17 +558,17 @@ impl Backend {
                         std::str::from_utf8(name_slice.bytes().collect::<Vec<_>>().as_slice())
                     {
                         let (kind, detail) = match symbol_kind {
-                            lext_lang::SymbolKind::Variable => (
+                            l_lang::SymbolKind::Variable => (
                                 Some(CompletionItemKind::VARIABLE),
                                 Some(format!(
                                     ": {}",
                                     type_info.ty.format_literal_type(&semantic_result.semantic)
                                 )),
                             ),
-                            lext_lang::SymbolKind::Function => {
+                            l_lang::SymbolKind::Function => {
                                 (Some(CompletionItemKind::FUNCTION), None)
                             }
-                            lext_lang::SymbolKind::Struct => {
+                            l_lang::SymbolKind::Struct => {
                                 (Some(CompletionItemKind::STRUCT), None)
                             }
                             _ => (None, None),

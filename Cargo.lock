@@ -410,6 +410,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "453ad9f582a441959e5f0d088b02ce04cfe8d51a8eaf077f12ac6d3e94164ca6"
 
 [[package]]
+name = "l"
+version = "0.1.0"
+source = "git+https://github.com/IWANABETHATGUY/l-lang#b5a0a3512cbc54b921773c5ad13182db840ba68e"
+dependencies = [
+ "codespan-reporting 0.13.1",
+ "l-formatter",
+ "l-parser",
+ "l-semantic",
+]
+
+[[package]]
+name = "l-formatter"
+version = "0.1.0"
+source = "git+https://github.com/IWANABETHATGUY/l-lang#b5a0a3512cbc54b921773c5ad13182db840ba68e"
+dependencies = [
+ "l-parser",
+ "pretty",
+]
+
+[[package]]
+name = "l-parser"
+version = "0.1.0"
+source = "git+https://github.com/IWANABETHATGUY/l-lang#b5a0a3512cbc54b921773c5ad13182db840ba68e"
+dependencies = [
+ "codespan-reporting 0.13.1",
+ "lelwel",
+ "logos 0.16.0",
+ "oxc_index 4.1.0",
+]
+
+[[package]]
+name = "l-semantic"
+version = "0.1.0"
+source = "git+https://github.com/IWANABETHATGUY/l-lang#b5a0a3512cbc54b921773c5ad13182db840ba68e"
+dependencies = [
+ "indexmap",
+ "l-parser",
+ "oxc_index 4.1.0",
+ "rust-lapper",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -423,44 +465,6 @@ checksum = "c52180256f02d6197392b9cd17db7e5964012cb7e7cfc058b985dfd8caee37b5"
 dependencies = [
  "codespan-reporting 0.11.1",
  "logos 0.15.1",
-]
-
-[[package]]
-name = "lext-formatter"
-version = "0.1.0"
-dependencies = [
- "lext-parser",
- "pretty",
-]
-
-[[package]]
-name = "lext-lang"
-version = "0.1.0"
-dependencies = [
- "codespan-reporting 0.13.1",
- "lext-formatter",
- "lext-parser",
- "lext-semantic",
-]
-
-[[package]]
-name = "lext-parser"
-version = "0.1.0"
-dependencies = [
- "codespan-reporting 0.13.1",
- "lelwel",
- "logos 0.16.0",
- "oxc_index 4.1.0",
-]
-
-[[package]]
-name = "lext-semantic"
-version = "0.1.0"
-dependencies = [
- "indexmap",
- "lext-parser",
- "oxc_index 4.1.0",
- "rust-lapper",
 ]
 
 [[package]]
@@ -592,7 +596,7 @@ dependencies = [
  "dashmap 6.1.0",
  "env_logger",
  "im-rc",
- "lext-lang",
+ "l",
  "log",
  "oxc_index 0.36.0",
  "ropey",
