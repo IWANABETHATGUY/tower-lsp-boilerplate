@@ -1,5 +1,7 @@
 use dashmap::DashMap;
-use lext_lang::{AstNode, CompileResult, Formatter, SymbolId, Type, compile, find_node_at_offset};
+use lext_lang::{
+    AstNode, CompileResult, Formatter, SymbolId, SymbolKind, Type, compile, find_node_at_offset,
+};
 use log::debug;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
@@ -70,7 +72,13 @@ impl LanguageServer for Backend {
                             semantic_tokens_options: SemanticTokensOptions {
                                 work_done_progress_options: WorkDoneProgressOptions::default(),
                                 legend: SemanticTokensLegend {
-                                    token_types: vec![],
+                                    token_types: vec![
+                                        SemanticTokenType::FUNCTION,
+                                        SemanticTokenType::VARIABLE,
+                                        SemanticTokenType::PARAMETER,
+                                        SemanticTokenType::STRUCT,
+                                        SemanticTokenType::PROPERTY,
+                                    ],
                                     token_modifiers: vec![],
                                 },
                                 range: Some(true),
@@ -138,93 +146,32 @@ impl LanguageServer for Backend {
 
     async fn semantic_tokens_full(
         &self,
-        _params: SemanticTokensParams,
+        params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        // let uri = params.text_document.uri.to_string();
-        // debug!("semantic_token_full");
-        // let semantic_tokens = || -> Option<Vec<SemanticToken>> {
-        //     let mut im_complete_tokens = self.semantic_token_map.get_mut(&uri)?;
-        //     let rope = self.document_map.get(&uri)?;
-        //     im_complete_tokens.sort_by(|a, b| a.start.cmp(&b.start));
-        //     let mut pre_line = 0;
-        //     let mut pre_start = 0;
-        //     let semantic_tokens = im_complete_tokens
-        //         .iter()
-        //         .filter_map(|token| {
-        //             let line = rope.try_byte_to_line(token.start).ok()? as u32;
-        //             let first = rope.try_line_to_char(line as usize).ok()? as u32;
-        //             let start = rope.try_byte_to_char(token.start).ok()? as u32 - first;
-        //             let delta_line = line - pre_line;
-        //             let delta_start = if delta_line == 0 {
-        //                 start - pre_start
-        //             } else {
-        //                 start
-        //             };
-        //             let ret = Some(SemanticToken {
-        //                 delta_line,
-        //                 delta_start,
-        //                 length: token.length as u32,
-        //                 token_type: token.token_type as u32,
-        //                 token_modifiers_bitset: 0,
-        //             });
-        //             pre_line = line;
-        //             pre_start = start;
-        //             ret
-        //         })
-        //         .collect::<Vec<_>>();
-        //     Some(semantic_tokens)
-        // }();
-        // if let Some(semantic_token) = semantic_tokens {
-        //     return Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
-        //         result_id: None,
-        //         data: semantic_token,
-        //     })));
-        // }
-        // Ok(None)
+        let uri = params.text_document.uri.to_string();
+        let semantic_tokens = self.build_semantic_tokens(&uri);
+        if let Some(tokens) = semantic_tokens {
+            return Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
+                result_id: None,
+                data: tokens,
+            })));
+        }
         Ok(None)
     }
 
     async fn semantic_tokens_range(
         &self,
-        _params: SemanticTokensRangeParams,
+        params: SemanticTokensRangeParams,
     ) -> Result<Option<SemanticTokensRangeResult>> {
-        // let uri = params.text_document.uri.to_string();
-        // let semantic_tokens = || -> Option<Vec<SemanticToken>> {
-        //     let im_complete_tokens = self.semantic_token_map.get(&uri)?;
-        //     let rope = self.document_map.get(&uri)?;
-        //     let mut pre_line = 0;
-        //     let mut pre_start = 0;
-        //     let semantic_tokens = im_complete_tokens
-        //         .iter()
-        //         .filter_map(|token| {
-        //             let line = rope.try_byte_to_line(token.start).ok()? as u32;
-        //             let first = rope.try_line_to_char(line as usize).ok()? as u32;
-        //             let start = rope.try_byte_to_char(token.start).ok()? as u32 - first;
-        //             let ret = Some(SemanticToken {
-        //                 delta_line: line - pre_line,
-        //                 delta_start: if start >= pre_start {
-        //                     start - pre_start
-        //                 } else {
-        //                     start
-        //                 },
-        //                 length: token.length as u32,
-        //                 token_type: token.token_type as u32,
-        //                 token_modifiers_bitset: 0,
-        //             });
-        //             pre_line = line;
-        //             pre_start = start;
-        //             ret
-        //         })
-        //         .collect::<Vec<_>>();
-        //     Some(semantic_tokens)
-        // }();
-        // Ok(semantic_tokens.map(|data| {
-        //     SemanticTokensRangeResult::Tokens(SemanticTokens {
-        //         result_id: None,
-        //         data,
-        //     })
-        // }))
-        Ok(None)
+        let uri = params.text_document.uri.to_string();
+        let range = params.range;
+        let semantic_tokens = self.build_semantic_tokens_range(&uri, range);
+        Ok(semantic_tokens.map(|data| {
+            SemanticTokensRangeResult::Tokens(SemanticTokens {
+                result_id: None,
+                data,
+            })
+        }))
     }
 
     async fn inlay_hint(
@@ -693,6 +640,167 @@ impl Backend {
         self.semanticast_map
             .insert(item.uri.clone(), compile_result);
         self.document_map.insert(item.uri.clone(), rope);
+    }
+
+    fn build_semantic_tokens(&self, uri: &str) -> Option<Vec<SemanticToken>> {
+        let semantic_result = self.semanticast_map.get(uri)?;
+        let rope = self.document_map.get(uri)?;
+
+        // Collect all tokens from symbols and references
+        // Token type indices correspond to LEGEND_TYPE order:
+        // 0: FUNCTION, 1: VARIABLE, 2: PARAMETER, 3: STRUCT, 4: PROPERTY (field)
+        let mut incomplete_tokens: Vec<(usize, usize, u32)> = Vec::new(); // (start, length, token_type)
+
+        // Add symbol definitions
+        for (symbol_id, span) in semantic_result.semantic.symbol_spans.iter_enumerated() {
+            let kind = semantic_result.semantic.get_symbol_kind(symbol_id);
+            let token_type = match kind {
+                SymbolKind::Function => 0,   // FUNCTION
+                SymbolKind::Variable => 1,   // VARIABLE
+                SymbolKind::Parameter => 2,  // PARAMETER
+                SymbolKind::Struct => 3,     // STRUCT
+                SymbolKind::Field => 4,      // PROPERTY
+            };
+            incomplete_tokens.push((span.start as usize, (span.end - span.start) as usize, token_type));
+        }
+
+        // Add references (they reference symbols, so use the symbol's kind)
+        for (ref_id, span) in semantic_result.semantic.reference_spans.iter_enumerated() {
+            if let Some(symbol_id) = semantic_result.semantic.references[ref_id] {
+                let kind = semantic_result.semantic.get_symbol_kind(symbol_id);
+                let token_type = match kind {
+                    SymbolKind::Function => 0,   // FUNCTION
+                    SymbolKind::Variable => 1,   // VARIABLE
+                    SymbolKind::Parameter => 2,  // PARAMETER
+                    SymbolKind::Struct => 3,     // STRUCT
+                    SymbolKind::Field => 4,      // PROPERTY
+                };
+                incomplete_tokens.push((span.start as usize, (span.end - span.start) as usize, token_type));
+            }
+        }
+
+        // Sort by start position
+        incomplete_tokens.sort_by(|a, b| a.0.cmp(&b.0));
+
+        // Convert to LSP SemanticToken format with delta encoding
+        let mut pre_line: u32 = 0;
+        let mut pre_start: u32 = 0;
+
+        let semantic_tokens = incomplete_tokens
+            .iter()
+            .filter_map(|(start, length, token_type)| {
+                // Convert byte offset to line and character
+                let line = rope.try_byte_to_line(*start).ok()? as u32;
+                let line_start_byte = rope.try_line_to_byte(line as usize).ok()?;
+                let char_offset = *start - line_start_byte;
+
+                let delta_line = line - pre_line;
+                let delta_start = if delta_line == 0 {
+                    char_offset as u32 - pre_start
+                } else {
+                    char_offset as u32
+                };
+
+                let token = SemanticToken {
+                    delta_line,
+                    delta_start,
+                    length: *length as u32,
+                    token_type: *token_type,
+                    token_modifiers_bitset: 0,
+                };
+
+                pre_line = line;
+                pre_start = char_offset as u32;
+
+                Some(token)
+            })
+            .collect::<Vec<_>>();
+
+        Some(semantic_tokens)
+    }
+
+    fn build_semantic_tokens_range(&self, uri: &str, range: Range) -> Option<Vec<SemanticToken>> {
+        let semantic_result = self.semanticast_map.get(uri)?;
+        let rope = self.document_map.get(uri)?;
+
+        // Convert range to byte offsets
+        let start_offset = position_to_offset(range.start, &rope)?;
+        let end_offset = position_to_offset(range.end, &rope)?;
+
+        // Collect all tokens from symbols and references within the range
+        let mut incomplete_tokens: Vec<(usize, usize, u32)> = Vec::new();
+
+        // Add symbol definitions within range
+        for (symbol_id, span) in semantic_result.semantic.symbol_spans.iter_enumerated() {
+            let token_start = span.start as usize;
+            if token_start >= start_offset && token_start < end_offset {
+                let kind = semantic_result.semantic.get_symbol_kind(symbol_id);
+                let token_type = match kind {
+                    SymbolKind::Function => 0,
+                    SymbolKind::Variable => 1,
+                    SymbolKind::Parameter => 2,
+                    SymbolKind::Struct => 3,
+                    SymbolKind::Field => 4,
+                };
+                incomplete_tokens.push((token_start, (span.end - span.start) as usize, token_type));
+            }
+        }
+
+        // Add references within range
+        for (ref_id, span) in semantic_result.semantic.reference_spans.iter_enumerated() {
+            let token_start = span.start as usize;
+            if token_start >= start_offset && token_start < end_offset {
+                if let Some(symbol_id) = semantic_result.semantic.references[ref_id] {
+                    let kind = semantic_result.semantic.get_symbol_kind(symbol_id);
+                    let token_type = match kind {
+                        SymbolKind::Function => 0,
+                        SymbolKind::Variable => 1,
+                        SymbolKind::Parameter => 2,
+                        SymbolKind::Struct => 3,
+                        SymbolKind::Field => 4,
+                    };
+                    incomplete_tokens.push((token_start, (span.end - span.start) as usize, token_type));
+                }
+            }
+        }
+
+        // Sort by start position
+        incomplete_tokens.sort_by(|a, b| a.0.cmp(&b.0));
+
+        // Convert to LSP SemanticToken format with delta encoding
+        let mut pre_line: u32 = 0;
+        let mut pre_start: u32 = 0;
+
+        let semantic_tokens = incomplete_tokens
+            .iter()
+            .filter_map(|(start, length, token_type)| {
+                let line = rope.try_byte_to_line(*start).ok()? as u32;
+                let line_start_byte = rope.try_line_to_byte(line as usize).ok()?;
+                let char_offset = *start - line_start_byte;
+
+                let delta_line = line - pre_line;
+                let delta_start = if delta_line == 0 {
+                    char_offset as u32 - pre_start
+                } else {
+                    char_offset as u32
+                };
+
+                let token = SemanticToken {
+                    delta_line,
+                    delta_start,
+                    length: *length as u32,
+                    token_type: *token_type,
+                    token_modifiers_bitset: 0,
+                };
+
+                pre_line = line;
+                pre_start = char_offset as u32;
+
+                Some(token)
+            })
+            .collect::<Vec<_>>();
+
+        Some(semantic_tokens)
     }
 }
 
