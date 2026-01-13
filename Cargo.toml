@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chumsky = "0.9.3"
+l-lang = { git = "https://github.com/IWANABETHATGUY/l-lang", package = "l" }
 env_logger = "0.11.5"
 ropey = "1.5.0"
 serde_json = "1.0.78"
