@@ -3,6 +3,9 @@
 > [!note]
 > This repo uses [l-lang](https://github.com/IWANABETHATGUY/l-lang), a simple statically-typed programming language with structs, functions, and expressions.
 
+> [!tip]
+> If you want a `chumsky` based language implementation, please check out the tag [v1.0.0](https://github.com/IWANABETHATGUY/tower-lsp-boilerplate/tree/v1.0.0)
+
 ## A valid program in l-lang
 ```rust
 struct Point {
