@@ -1,40 +1,50 @@
-# boilerplate for a  rust language server powered by `tower-lsp` 
+# boilerplate for a rust language server powered by `tower-lsp`
 
 > [!note]
-> This repo use a language which is a very small subset of `rust` called `nano rust`
+> This repo uses [l-lang](https://github.com/IWANABETHATGUY/l-lang), a simple statically-typed programming language with structs, functions, and expressions.
 
-## A valid program in nano rust 
+## A valid program in l-lang
 ```rust
-fn factorial(x) {
-    // Conditionals are supported!
-    if x == 0 {
-        1
-    } else {
-        x * factorial(x - 1)
-    }
+struct Point {
+    x: int,
+    y: int,
 }
 
-// The main function
+struct Rectangle {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+fn add_points(a: Point, b: Point) -> Point {
+    return Point { x: a.x + b.x, y: a.y + b.y };
+}
+
 fn main() {
-    let three = 3;
-    let meaning_of_life = three * 14 + 1;
+    let p1 = Point { x: 10, y: 20 };
+    let p2 = Point { x: 5, y: 15 };
+    let result = add_points(p1, p2);
 
-    print("Hello, world!");
-    print("The meaning of life is...");
+    let rect = Rectangle {
+        top_left: Point { x: 0, y: 100 },
+        bottom_right: Point { x: 100, y: 0 },
+    };
 
-    if meaning_of_life == 42 {
-        print(meaning_of_life);
-    } else {
-        print("...something we cannot know");
-
-        print("However, I can tell you that the factorial of 10 is...");
-        // Function calling
-        print(factorial(10));
-    }
+    return result;
 }
 ```
+
+## Language Features
+L-lang is a statically-typed language that supports:
+- **Struct definitions** with typed fields
+- **Functions** with typed parameters and return types
+- **Variable bindings** with type inference
+- **Arithmetic operations** (+, -, *, /)
+- **Field access** for structs
+- **Struct literals** for instantiation
+- **Basic types**: `int`, `bool`, `string`
+
 ## Introduction
-This repo is a template for `tower-lsp`, a useful github project template which makes writing new language servers easier.
+This repo is a template for building Language Server Protocol (LSP) implementations using `tower-lsp`, demonstrating how to create language servers with full IDE support.
 ## Development using VSCode
 1. `pnpm i`
 2. `cargo build`
@@ -58,38 +68,54 @@ For other editor, please refer the related manual, you could skip steps above.
 
 
 ## Features
-This repo use a language `nano rust` which first introduced by [ chumsky ](https://github.com/zesterer/chumsky/blob/master/examples/nano_rust.rs). Most common language feature has been implemented, you could preview via the video below.
+This Language Server Protocol implementation for l-lang provides comprehensive IDE support with the following features:
 
-- [x] InlayHint for LiteralType
+- [x] **Semantic Tokens** - Syntax highlighting based on semantic analysis
+  - Functions, variables, parameters, structs, and fields are highlighted according to their semantic roles
+  - Make sure semantic highlighting is enabled in your editor settings:
+    ```json
+    {
+      "editor.semanticHighlighting.enabled": true
+    }
+    ```
+
+- [x] **Inlay Hints** - Type annotations for variables
 ![inlay hint](https://user-images.githubusercontent.com/17974631/156926412-c3823dac-664e-430e-96c1-c003a86eabb2.gif)
 
-- [x] semantic token   
-make sure your semantic token is enabled, you could enable your `semantic token` by
-adding this line  to your `settings.json`
-```json
-{
- "editor.semanticHighlighting.enabled": true,
-}
-```
-- [x] syntactic error diagnostic
+- [x] **Syntactic and Semantic Error Diagnostics** - Real-time error reporting
 
 https://user-images.githubusercontent.com/17974631/156926382-a1c4c911-7ea1-4d3a-8e08-3cf7271da170.mp4
 
-- [x] code completion  
+- [x] **Code Completion** - Context-aware suggestions for symbols
 
 https://user-images.githubusercontent.com/17974631/156926355-010ef2cd-1d04-435b-bd1e-8b0dab9f44f1.mp4
 
-- [x] go to definition  
+- [x] **Go to Definition** - Navigate to symbol declarations
 
 https://user-images.githubusercontent.com/17974631/156926103-94d90bd3-f31c-44e7-a2ce-4ddfde89bc33.mp4
 
-- [x] find reference
+- [x] **Find References** - Locate all usages of a symbol
 
 https://user-images.githubusercontent.com/17974631/157367235-7091a36c-631a-4347-9c1e-a3b78db81714.mp4
 
-- [x] rename
+- [x] **Rename** - Rename symbols across the entire codebase
 
 https://user-images.githubusercontent.com/17974631/157367229-99903896-5583-4f67-a6da-1ae1cf206876.mp4
+
+## Implementation Details
+
+### Semantic Token Support
+The LSP implementation provides full semantic token support using l-lang's semantic analysis:
+- **Token Types**: Functions, Variables, Parameters, Structs, Fields (Properties)
+- **Token Sources**: Both symbol definitions and references are highlighted
+- **Delta Encoding**: Efficient LSP protocol format for token transmission
+- **Range Support**: Both full document and range-based token requests
+
+The implementation extracts semantic information from l-lang's two-pass analysis:
+1. **Symbol Resolution Pass**: Collects all declarations and resolves references
+2. **Type Checking Pass**: Infers types and validates semantics
+
+All tokens are properly mapped from byte offsets to line/character positions using the Rope data structure for accurate highlighting.
 
 
 
