@@ -1,6 +1,6 @@
 use dashmap::DashMap;
 use l_lang::{
-    AstNode, CompileResult, Formatter, SymbolId, SymbolKind, Type, compile, find_node_at_offset,
+    compile, find_node_at_offset, AstNode, CompileResult, Formatter, SymbolId, SymbolKind, Type,
 };
 use log::debug;
 use ropey::Rope;
@@ -440,7 +440,7 @@ impl Backend {
         let Type::Struct(mut struct_id) = ty_info.ty else {
             return None;
         };
-        
+
         for field_name in access_arr {
             let struct_def = semantic_result.semantic.structs.get(&struct_id)?;
             let field = struct_def.fields.iter().find(|f| f.name == field_name)?;
@@ -450,7 +450,6 @@ impl Backend {
             struct_id = next_struct_id;
         }
         Some(struct_id)
-
     }
 
     fn get_completion(&self, params: CompletionParams) -> Option<Vec<CompletionItem>> {
@@ -552,9 +551,7 @@ impl Backend {
                             l_lang::SymbolKind::Function => {
                                 (Some(CompletionItemKind::FUNCTION), None)
                             }
-                            l_lang::SymbolKind::Struct => {
-                                (Some(CompletionItemKind::STRUCT), None)
-                            }
+                            l_lang::SymbolKind::Struct => (Some(CompletionItemKind::STRUCT), None),
                             _ => (None, None),
                         };
 
@@ -639,13 +636,17 @@ impl Backend {
         for (symbol_id, span) in semantic_result.semantic.symbol_spans.iter_enumerated() {
             let kind = semantic_result.semantic.get_symbol_kind(symbol_id);
             let token_type = match kind {
-                SymbolKind::Function => 0,   // FUNCTION
-                SymbolKind::Variable => 1,   // VARIABLE
-                SymbolKind::Parameter => 2,  // PARAMETER
-                SymbolKind::Struct => 3,     // STRUCT
-                SymbolKind::Field => 4,      // PROPERTY
+                SymbolKind::Function => 0,  // FUNCTION
+                SymbolKind::Variable => 1,  // VARIABLE
+                SymbolKind::Parameter => 2, // PARAMETER
+                SymbolKind::Struct => 3,    // STRUCT
+                SymbolKind::Field => 4,     // PROPERTY
             };
-            incomplete_tokens.push((span.start as usize, (span.end - span.start) as usize, token_type));
+            incomplete_tokens.push((
+                span.start as usize,
+                (span.end - span.start) as usize,
+                token_type,
+            ));
         }
 
         // Add references (they reference symbols, so use the symbol's kind)
@@ -653,13 +654,17 @@ impl Backend {
             if let Some(symbol_id) = semantic_result.semantic.references[ref_id] {
                 let kind = semantic_result.semantic.get_symbol_kind(symbol_id);
                 let token_type = match kind {
-                    SymbolKind::Function => 0,   // FUNCTION
-                    SymbolKind::Variable => 1,   // VARIABLE
-                    SymbolKind::Parameter => 2,  // PARAMETER
-                    SymbolKind::Struct => 3,     // STRUCT
-                    SymbolKind::Field => 4,      // PROPERTY
+                    SymbolKind::Function => 0,  // FUNCTION
+                    SymbolKind::Variable => 1,  // VARIABLE
+                    SymbolKind::Parameter => 2, // PARAMETER
+                    SymbolKind::Struct => 3,    // STRUCT
+                    SymbolKind::Field => 4,     // PROPERTY
                 };
-                incomplete_tokens.push((span.start as usize, (span.end - span.start) as usize, token_type));
+                incomplete_tokens.push((
+                    span.start as usize,
+                    (span.end - span.start) as usize,
+                    token_type,
+                ));
             }
         }
 
@@ -743,7 +748,11 @@ impl Backend {
                         SymbolKind::Struct => 3,
                         SymbolKind::Field => 4,
                     };
-                    incomplete_tokens.push((token_start, (span.end - span.start) as usize, token_type));
+                    incomplete_tokens.push((
+                        token_start,
+                        (span.end - span.start) as usize,
+                        token_type,
+                    ));
                 }
             }
         }
