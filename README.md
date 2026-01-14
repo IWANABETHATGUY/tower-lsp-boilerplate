@@ -127,3 +127,5 @@ https://github.com/user-attachments/assets/b71b37aa-4cf9-4433-b408-bd218ba7006c
 Rename symbols across the entire codebase.
 
 https://github.com/user-attachments/assets/79b3f40b-304d-4cf5-8c6d-ac019eb4090f
+
+### Format
