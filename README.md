@@ -80,53 +80,54 @@ For other editor, please refer the related manual, you could skip steps above.
 
 This Language Server Protocol implementation for l-lang provides comprehensive IDE support with the following features:
 
-- [x] **Semantic Tokens** - Syntax highlighting based on semantic analysis
-  - Functions, variables, parameters, structs, and fields are highlighted according to their semantic roles
-  - Make sure semantic highlighting is enabled in your editor settings:
-    ```json
-    {
-      "editor.semanticHighlighting.enabled": true
-    }
-    ```
+### Semantic Tokens
 
-- [x] **Inlay Hints** - Type annotations for variables
+Syntax highlighting based on semantic analysis. Functions, variables, parameters, structs, and fields are highlighted according to their semantic roles.
+
+Make sure semantic highlighting is enabled in your editor settings:
+
+```json
+{
+  "editor.semanticHighlighting.enabled": true
+}
+```
+
+### Inlay Hints
+
+Type annotations for variables.
 
 https://github.com/user-attachments/assets/600a2047-a94a-4377-a05e-f11791a17169
 
-- [x] **Syntactic and Semantic Error Diagnostics** - Real-time error reporting
+### Syntactic and Semantic Error Diagnostics
+
+Real-time error reporting.
 
 https://github.com/user-attachments/assets/2d10070c-340f-4685-965c-2932e16ea20a
 
-- [x] **Code Completion** - Context-aware suggestions for symbols
+### Code Completion
+
+Context-aware suggestions for symbols.
 
 https://github.com/user-attachments/assets/00fed27a-8934-4df6-b001-4da71c3d447c
 
-- [x] **Go to Definition** - Navigate to symbol declarations
+### Go to Definition
+
+Navigate to symbol declarations.
 
 https://github.com/user-attachments/assets/9a1c3aa1-8f66-4c99-b212-b5356de1d5d2
 
-- [x] **Find References** - Locate all usages of a symbol
+### Find References
+
+Locate all usages of a symbol.
 
 https://github.com/user-attachments/assets/b71b37aa-4cf9-4433-b408-bd218ba7006c
 
-- [x] **Rename** - Rename symbols across the entire codebase
+### Rename
+
+Rename symbols across the entire codebase.
 
 https://github.com/user-attachments/assets/79b3f40b-304d-4cf5-8c6d-ac019eb4090f
 
-## Implementation Details
+### Format
 
-### Semantic Token Support
-
-The LSP implementation provides full semantic token support using l-lang's semantic analysis:
-
-- **Token Types**: Functions, Variables, Parameters, Structs, Fields (Properties)
-- **Token Sources**: Both symbol definitions and references are highlighted
-- **Delta Encoding**: Efficient LSP protocol format for token transmission
-- **Range Support**: Both full document and range-based token requests
-
-The implementation extracts semantic information from l-lang's two-pass analysis:
-
-1. **Symbol Resolution Pass**: Collects all declarations and resolves references
-2. **Type Checking Pass**: Infers types and validates semantics
-
-All tokens are properly mapped from byte offsets to line/character positions using the Rope data structure for accurate highlighting.
+https://github.com/user-attachments/assets/06439fd6-ebf9-414f-86da-95f3b9fa276a
