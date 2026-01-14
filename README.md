@@ -93,38 +93,25 @@ This Language Server Protocol implementation for l-lang provides comprehensive I
 
 https://github.com/user-attachments/assets/600a2047-a94a-4377-a05e-f11791a17169
 
-
 - [x] **Syntactic and Semantic Error Diagnostics** - Real-time error reporting
-
 
 https://github.com/user-attachments/assets/2d10070c-340f-4685-965c-2932e16ea20a
 
-
-
 - [x] **Code Completion** - Context-aware suggestions for symbols
-
 
 https://github.com/user-attachments/assets/00fed27a-8934-4df6-b001-4da71c3d447c
 
-
 - [x] **Go to Definition** - Navigate to symbol declarations
-
 
 https://github.com/user-attachments/assets/9a1c3aa1-8f66-4c99-b212-b5356de1d5d2
 
-
 - [x] **Find References** - Locate all usages of a symbol
-
 
 https://github.com/user-attachments/assets/b71b37aa-4cf9-4433-b408-bd218ba7006c
 
-
 - [x] **Rename** - Rename symbols across the entire codebase
 
-
 https://github.com/user-attachments/assets/79b3f40b-304d-4cf5-8c6d-ac019eb4090f
-
-
 
 ## Implementation Details
 
