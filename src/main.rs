@@ -4,10 +4,8 @@ use l_lang::{
 };
 use log::debug;
 use ropey::Rope;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::notification::Notification;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
@@ -215,19 +213,6 @@ impl LanguageServer for Backend {
 
         Ok(None)
     }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct InlayHintParams {
-    path: String,
-}
-
-#[allow(unused)]
-enum CustomNotification {}
-
-impl Notification for CustomNotification {
-    type Params = InlayHintParams;
-    const METHOD: &'static str = "custom/notification";
 }
 
 #[tokio::main]
@@ -484,7 +469,6 @@ impl Backend {
             match nearest_node {
                 // Field access completion: suggest available fields/members
                 AstNode::ExprField(field_expr) => {
-                    dbg!(&field_expr);
                     let struct_id = self.get_struct_id_from_field(field_expr, &semantic_result)?;
                     let struct_def = semantic_result.semantic.structs.get(&struct_id)?;
                     struct_def.fields.iter().for_each(|field| {
@@ -809,7 +793,6 @@ struct TextDocumentChange<'a> {
     text: &'a str,
 }
 
-#[allow(dead_code)]
 fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
     let line = rope.try_char_to_line(offset).ok()?;
     let first_char_of_line = rope.try_line_to_char(line).ok()?;
@@ -817,7 +800,6 @@ fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
     Some(Position::new(line as u32, column as u32))
 }
 
-#[allow(dead_code)]
 fn position_to_offset(position: Position, rope: &Rope) -> Option<usize> {
     let line_char_offset = rope.try_line_to_char(position.line as usize).ok()?;
     let slice = rope.slice(0..line_char_offset + position.character as usize);
