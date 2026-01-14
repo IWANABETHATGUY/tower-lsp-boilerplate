@@ -3,11 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import {
-  workspace,
-  ExtensionContext,
-  window,
-} from "vscode";
+import { workspace, ExtensionContext, window } from "vscode";
 
 import {
   Executable,
@@ -18,8 +14,7 @@ import {
 
 let client: LanguageClient;
 
-export async function activate(context: ExtensionContext) {
-
+export async function activate(_context: ExtensionContext) {
   const traceOutputChannel = window.createOutputChannel("Nrs Language Server trace");
   const command = process.env.SERVER_PATH || "nrs-language-server";
   const run: Executable = {
@@ -50,7 +45,12 @@ export async function activate(context: ExtensionContext) {
   };
 
   // Create the language client and start the client.
-  client = new LanguageClient("nrs-language-server", "nrs language server", serverOptions, clientOptions);
+  client = new LanguageClient(
+    "nrs-language-server",
+    "nrs language server",
+    serverOptions,
+    clientOptions,
+  );
   client.start();
 }
 
