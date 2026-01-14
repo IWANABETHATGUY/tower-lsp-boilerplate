@@ -430,6 +430,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "l-language-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dashmap 6.1.0",
+ "env_logger",
+ "im-rc",
+ "l",
+ "log",
+ "oxc_index 0.36.0",
+ "ropey",
+ "rust-lapper",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tower-lsp",
+]
+
+[[package]]
 name = "l-parser"
 version = "0.1.0"
 source = "git+https://github.com/IWANABETHATGUY/l-lang#b5a0a3512cbc54b921773c5ad13182db840ba68e"
@@ -586,26 +606,6 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.45.0",
-]
-
-[[package]]
-name = "nrs-language-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "dashmap 6.1.0",
- "env_logger",
- "im-rc",
- "l",
- "log",
- "oxc_index 0.36.0",
- "ropey",
- "rust-lapper",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tower-lsp",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 {
-  "name": "nrs-language-client",
+  "name": "l-language-client",
   "version": "0.0.1",
-  "description": "VSCode part of a language server",
+  "description": "VSCode part of the L language server",
   "license": "MIT",
   "dependencies": {
     "vscode-languageclient": "9.0.1"
