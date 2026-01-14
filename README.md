@@ -90,27 +90,28 @@ This Language Server Protocol implementation for l-lang provides comprehensive I
     ```
 
 - [x] **Inlay Hints** - Type annotations for variables
-      ![inlay hint](https://user-images.githubusercontent.com/17974631/156926412-c3823dac-664e-430e-96c1-c003a86eabb2.gif)
+
+https://github.com/user-attachments/assets/600a2047-a94a-4377-a05e-f11791a17169
 
 - [x] **Syntactic and Semantic Error Diagnostics** - Real-time error reporting
 
-https://user-images.githubusercontent.com/17974631/156926382-a1c4c911-7ea1-4d3a-8e08-3cf7271da170.mp4
+https://github.com/user-attachments/assets/2d10070c-340f-4685-965c-2932e16ea20a
 
 - [x] **Code Completion** - Context-aware suggestions for symbols
 
-https://user-images.githubusercontent.com/17974631/156926355-010ef2cd-1d04-435b-bd1e-8b0dab9f44f1.mp4
+https://github.com/user-attachments/assets/00fed27a-8934-4df6-b001-4da71c3d447c
 
 - [x] **Go to Definition** - Navigate to symbol declarations
 
-https://user-images.githubusercontent.com/17974631/156926103-94d90bd3-f31c-44e7-a2ce-4ddfde89bc33.mp4
+https://github.com/user-attachments/assets/9a1c3aa1-8f66-4c99-b212-b5356de1d5d2
 
 - [x] **Find References** - Locate all usages of a symbol
 
-https://user-images.githubusercontent.com/17974631/157367235-7091a36c-631a-4347-9c1e-a3b78db81714.mp4
+https://github.com/user-attachments/assets/b71b37aa-4cf9-4433-b408-bd218ba7006c
 
 - [x] **Rename** - Rename symbols across the entire codebase
 
-https://user-images.githubusercontent.com/17974631/157367229-99903896-5583-4f67-a6da-1ae1cf206876.mp4
+https://github.com/user-attachments/assets/79b3f40b-304d-4cf5-8c6d-ac019eb4090f
 
 ## Implementation Details
 
