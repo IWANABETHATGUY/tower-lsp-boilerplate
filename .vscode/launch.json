@@ -7,12 +7,8 @@
       "request": "launch",
       "name": "Launch Client",
       "runtimeExecutable": "${execPath}",
-      "args": [
-        "--extensionDevelopmentPath=${workspaceRoot}"
-      ],
-      "outFiles": [
-        "${workspaceRoot}/client/out/**/*.js"
-      ],
+      "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
+      "outFiles": ["${workspaceRoot}/client/out/**/*.js"],
       "env": {
         "SERVER_PATH": "${workspaceRoot}/target/debug/nrs-language-server"
       }
@@ -35,16 +31,14 @@
         "--extensionTestsPath=${workspaceRoot}/client/out/test/index",
         "${workspaceRoot}/client/testFixture"
       ],
-      "outFiles": [
-        "${workspaceRoot}/client/out/test/**/*.js"
-      ]
+      "outFiles": ["${workspaceRoot}/client/out/test/**/*.js"]
     }
   ],
   "compounds": [
     {
       "name": "Client + Server",
       "configurations": [
-        "Launch Client",
+        "Launch Client"
         // "Attach to Server"
       ]
     }

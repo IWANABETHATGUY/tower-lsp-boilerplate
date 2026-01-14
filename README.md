@@ -7,6 +7,7 @@
 > If you want a `chumsky` based language implementation, please check out the tag [v1.0.0](https://github.com/IWANABETHATGUY/tower-lsp-boilerplate/tree/v1.0.0)
 
 ## A valid program in l-lang
+
 ```rust
 struct Point {
     x: int,
@@ -37,18 +38,23 @@ fn main() {
 ```
 
 ## Language Features
+
 L-lang is a statically-typed language that supports:
+
 - **Struct definitions** with typed fields
 - **Functions** with typed parameters and return types
 - **Variable bindings** with type inference
-- **Arithmetic operations** (+, -, *, /)
+- **Arithmetic operations** (+, -, \*, /)
 - **Field access** for structs
 - **Struct literals** for instantiation
 - **Basic types**: `int`, `bool`, `string`
 
 ## Introduction
+
 This repo is a template for building Language Server Protocol (LSP) implementations using `tower-lsp`, demonstrating how to create language servers with full IDE support.
+
 ## Development using VSCode
+
 1. `pnpm i`
 2. `cargo build`
 3. Open the project in VSCode: `code .`
@@ -61,6 +67,7 @@ This repo is a template for building Language Server Protocol (LSP) implementati
 > please try run command `tsc -b` manually, you could refer https://github.com/IWANABETHATGUY/tower-lsp-boilerplate/issues/6 for more details
 
 ### Preview and test extension locally with `VsCode`
+
 1. Make sure all dependency are installed.
 2. Make sure the `nrs-language-server` is under your `PATH`
 3. `pnpm run package`
@@ -69,8 +76,8 @@ This repo is a template for building Language Server Protocol (LSP) implementati
 
 For other editor, please refer the related manual, you could skip steps above.
 
-
 ## Features
+
 This Language Server Protocol implementation for l-lang provides comprehensive IDE support with the following features:
 
 - [x] **Semantic Tokens** - Syntax highlighting based on semantic analysis
@@ -83,7 +90,7 @@ This Language Server Protocol implementation for l-lang provides comprehensive I
     ```
 
 - [x] **Inlay Hints** - Type annotations for variables
-![inlay hint](https://user-images.githubusercontent.com/17974631/156926412-c3823dac-664e-430e-96c1-c003a86eabb2.gif)
+      ![inlay hint](https://user-images.githubusercontent.com/17974631/156926412-c3823dac-664e-430e-96c1-c003a86eabb2.gif)
 
 - [x] **Syntactic and Semantic Error Diagnostics** - Real-time error reporting
 
@@ -108,21 +115,17 @@ https://user-images.githubusercontent.com/17974631/157367229-99903896-5583-4f67-
 ## Implementation Details
 
 ### Semantic Token Support
+
 The LSP implementation provides full semantic token support using l-lang's semantic analysis:
+
 - **Token Types**: Functions, Variables, Parameters, Structs, Fields (Properties)
 - **Token Sources**: Both symbol definitions and references are highlighted
 - **Delta Encoding**: Efficient LSP protocol format for token transmission
 - **Range Support**: Both full document and range-based token requests
 
 The implementation extracts semantic information from l-lang's two-pass analysis:
+
 1. **Symbol Resolution Pass**: Collects all declarations and resolves references
 2. **Type Checking Pass**: Infers types and validates semantics
 
 All tokens are properly mapped from byte offsets to line/character positions using the Rope data structure for accurate highlighting.
-
-
-
-
-
-
-
