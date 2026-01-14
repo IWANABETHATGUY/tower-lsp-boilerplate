@@ -15,8 +15,8 @@ import {
 let client: LanguageClient;
 
 export async function activate(_context: ExtensionContext) {
-  const traceOutputChannel = window.createOutputChannel("Nrs Language Server trace");
-  const command = process.env.SERVER_PATH || "nrs-language-server";
+  const traceOutputChannel = window.createOutputChannel("L Language Server trace");
+  const command = process.env.SERVER_PATH || "l-language-server";
   const run: Executable = {
     command,
     options: {
@@ -36,7 +36,7 @@ export async function activate(_context: ExtensionContext) {
   // Options to control the language client
   let clientOptions: LanguageClientOptions = {
     // Register the server for plain text documents
-    documentSelector: [{ scheme: "file", language: "nrs" }],
+    documentSelector: [{ scheme: "file", language: "l" }],
     synchronize: {
       // Notify the server about file changes to '.clientrc files contained in the workspace
       fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
@@ -46,8 +46,8 @@ export async function activate(_context: ExtensionContext) {
 
   // Create the language client and start the client.
   client = new LanguageClient(
-    "nrs-language-server",
-    "nrs language server",
+    "l-language-server",
+    "L language server",
     serverOptions,
     clientOptions,
   );

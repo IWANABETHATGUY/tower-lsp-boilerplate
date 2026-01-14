@@ -1,7 +1,7 @@
 {
-  "name": "nrs-language-server",
+  "name": "l-language-server",
   "version": "1.5.0",
-  "description": "nano rust language server",
+  "description": "L language server",
   "categories": [],
   "keywords": [
     "language-server",
@@ -44,17 +44,17 @@
   "contributes": {
     "languages": [
       {
-        "id": "nrs",
+        "id": "l",
         "extensions": [
-          ".nrs"
+          ".l"
         ]
       }
     ],
     "configuration": {
       "type": "object",
-      "title": "nrs-language-server",
+      "title": "l-language-server",
       "properties": {
-        "nrs-language-server.trace.server": {
+        "l-language-server.trace.server": {
           "type": "string",
           "scope": "window",
           "enum": [
@@ -74,7 +74,7 @@
     }
   },
   "activationEvents": [
-    "onLanguage:nrs"
+    "onLanguage:l"
   ],
   "engines": {
     "vscode": "^1.66.0"
