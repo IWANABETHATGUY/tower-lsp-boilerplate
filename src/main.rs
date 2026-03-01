@@ -36,6 +36,7 @@ impl LanguageServer for Backend {
                         ..Default::default()
                     },
                 )),
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
                 completion_provider: Some(CompletionOptions {
                     resolve_provider: Some(false),
                     trigger_characters: Some(vec![".".to_string()]),
@@ -170,6 +171,58 @@ impl LanguageServer for Backend {
                 data,
             })
         }))
+    }
+
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
+        let position = params.text_document_position_params.position;
+
+        let rope = self.document_map.get(&uri);
+        let compilation_result = self.semanticast_map.get(&uri);
+
+        let hover = (|| -> Option<Hover> {
+            let rope = rope.as_deref()?;
+            let compilation_result = compilation_result.as_deref()?;
+            let offset = position_to_offset(position, rope)?;
+            let symbol_id = compilation_result.semantic.get_symbol_at(offset)?;
+
+            let symbol_kind = compilation_result.semantic.get_symbol_kind(symbol_id);
+            let type_info = &compilation_result.semantic.bindings[symbol_id];
+            let span = compilation_result.semantic.get_symbol_span(symbol_id);
+            let name = rope
+                .byte_slice(span.start as usize..span.end as usize)
+                .to_string();
+
+            let content = match symbol_kind {
+                SymbolKind::Function => format!("```l\nfn {name}\n```"),
+                SymbolKind::Struct => format!("```l\nstruct {name}\n```"),
+                _ => {
+                    let type_str = type_info
+                        .ty
+                        .format_literal_type(&compilation_result.semantic);
+                    match symbol_kind {
+                        SymbolKind::Variable => format!("```l\nlet {name}: {type_str}\n```"),
+                        SymbolKind::Parameter => format!("```l\n{name}: {type_str}\n```"),
+                        SymbolKind::Field => format!("```l\n{name}: {type_str}\n```"),
+                        _ => return None,
+                    }
+                }
+            };
+
+            Some(Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: content,
+                }),
+                range: None,
+            })
+        })();
+
+        Ok(hover)
     }
 
     async fn inlay_hint(
