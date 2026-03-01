@@ -677,7 +677,7 @@ impl Backend {
 
         let semantic_tokens = incomplete_tokens
             .iter()
-            .filter_map(|(start, length, token_type)| {
+            .map(|(start, length, token_type)| {
                 // Convert byte offset to line and character
                 let line = rope.line_of_byte(*start) as u32;
                 let line_start_byte = rope.byte_of_line(line as usize);
@@ -701,7 +701,7 @@ impl Backend {
                 pre_line = line;
                 pre_start = char_offset as u32;
 
-                Some(token)
+                token
             })
             .collect::<Vec<_>>();
 
@@ -766,7 +766,7 @@ impl Backend {
 
         let semantic_tokens = incomplete_tokens
             .iter()
-            .filter_map(|(start, length, token_type)| {
+            .map(|(start, length, token_type)| {
                 let line = rope.line_of_byte(*start) as u32;
                 let line_start_byte = rope.byte_of_line(line as usize);
                 let char_offset = *start - line_start_byte;
@@ -789,7 +789,7 @@ impl Backend {
                 pre_line = line;
                 pre_start = char_offset as u32;
 
-                Some(token)
+                token
             })
             .collect::<Vec<_>>();
 
