@@ -3,7 +3,7 @@ use l_lang::{
     compile, find_node_at_offset, AstNode, CompileResult, Formatter, SymbolId, SymbolKind, Type,
 };
 use log::debug;
-use ropey::Rope;
+use crop::Rope;
 use serde_json::Value;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -243,8 +243,8 @@ impl Backend {
             range: Range {
                 start: Position::new(0, 0),
                 end: Position::new(
-                    rope.len_lines() as u32,
-                    rope.line(rope.len_lines() - 1).len_chars() as u32,
+                    rope.line_len() as u32,
+                    rope.line(rope.line_len() - 1).byte_len() as u32,
                 ),
             },
             new_text: formatted_text,
@@ -569,7 +569,7 @@ impl Backend {
     }
 
     async fn on_change(&self, item: TextDocumentChange<'_>) {
-        let rope = Rope::from_str(item.text);
+        let rope = Rope::from(item.text);
         let compile_result = compile(item.text);
         let mut diagnostics = compile_result
             .diagnostics
@@ -679,8 +679,8 @@ impl Backend {
             .iter()
             .filter_map(|(start, length, token_type)| {
                 // Convert byte offset to line and character
-                let line = rope.try_byte_to_line(*start).ok()? as u32;
-                let line_start_byte = rope.try_line_to_byte(line as usize).ok()?;
+                let line = rope.line_of_byte(*start) as u32;
+                let line_start_byte = rope.byte_of_line(line as usize);
                 let char_offset = *start - line_start_byte;
 
                 let delta_line = line - pre_line;
@@ -767,8 +767,8 @@ impl Backend {
         let semantic_tokens = incomplete_tokens
             .iter()
             .filter_map(|(start, length, token_type)| {
-                let line = rope.try_byte_to_line(*start).ok()? as u32;
-                let line_start_byte = rope.try_line_to_byte(line as usize).ok()?;
+                let line = rope.line_of_byte(*start) as u32;
+                let line_start_byte = rope.byte_of_line(line as usize);
                 let char_offset = *start - line_start_byte;
 
                 let delta_line = line - pre_line;
@@ -803,14 +803,19 @@ struct TextDocumentChange<'a> {
 }
 
 fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
-    let line = rope.try_char_to_line(offset).ok()?;
-    let first_char_of_line = rope.try_line_to_char(line).ok()?;
-    let column = offset - first_char_of_line;
+    if offset > rope.byte_len() {
+        return None;
+    }
+    let line = rope.line_of_byte(offset);
+    let line_start_byte = rope.byte_of_line(line);
+    let column = offset - line_start_byte;
     Some(Position::new(line as u32, column as u32))
 }
 
 fn position_to_offset(position: Position, rope: &Rope) -> Option<usize> {
-    let line_char_offset = rope.try_line_to_char(position.line as usize).ok()?;
-    let slice = rope.slice(0..line_char_offset + position.character as usize);
-    Some(slice.len_bytes())
+    if position.line as usize >= rope.line_len() {
+        return None;
+    }
+    let line_byte_offset = rope.byte_of_line(position.line as usize);
+    Some(line_byte_offset + position.character as usize)
 }
