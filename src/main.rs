@@ -1,9 +1,9 @@
+use crop::Rope;
 use dashmap::DashMap;
 use l_lang::{
     compile, find_node_at_offset, AstNode, CompileResult, Formatter, SymbolId, SymbolKind, Type,
 };
 use log::debug;
-use crop::Rope;
 use serde_json::Value;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
