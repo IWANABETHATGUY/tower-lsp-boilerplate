@@ -3,7 +3,7 @@ node_modules
 out/
 src/
 tsconfig.json
-webpack.config.js
+rolldown.config.mjs
 client/**
 target
 Cargo.lock
